@@ -44,10 +44,11 @@ int main(int argc, char *argv[])
 }
 
 int operation(char *fichero){
-
-
-
-
-
+    cout<<fichero<<"\n";
+    int fd =open(fichero, O_RDONLY);
+    char buffer [1];
+    lseek(fd, 1, 0);
+    read(fd, buffer, 1);
+    cout<<buffer<<"\n";
     return 0;
 }

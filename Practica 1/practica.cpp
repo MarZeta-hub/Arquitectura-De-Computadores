@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     }
 
     //En el caso de que no sea ninguno de estos el tipo pasado por argumento
-    if (strcmp(argv[1], "copy") && strcmp(argv[1], "gauss") && strcmp(argv[1], "boel"))
+    if (strcmp(argv[1], "copy") && strcmp(argv[1], "gauss") && strcmp(argv[1], "sobel"))
     {
         perror("No existe ese tipo");
         return -1;
