@@ -16,10 +16,10 @@ int operation(char *fichero);
 
 int main(int argc, char *argv[])
 {
-    char origen[8] = "origen";
-    strcat(origen, "/");
+    char origen[8] = "origen/";
     char destino[9] = "destino/";
-    strcat(destino, "/");
+    if(origen[strlen(origen)] != '/') strcat(origen, "/");
+    if(destino[strlen(destino)] != '/') strcat(destino, "/");
 
     struct dirent *eDirOrigen;          //Es un puntero Dirent
     DIR *dirOrigen = opendir(origen);   //Abro el gestor de directorio de origen
@@ -44,11 +44,6 @@ int main(int argc, char *argv[])
 }
 
 int operation(char *fichero){
-    cout<<fichero<<"\n";
-    int fd =open(fichero, O_RDONLY);
-    char buffer [1];
-    lseek(fd, 1, 0);
-    read(fd, buffer, 1);
-    cout<<buffer<<"\n";
+    char bmp[20] = "destino/flor.bmp";
     return 0;
 }
