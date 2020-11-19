@@ -1,12 +1,12 @@
 /**
- * Actualmente este fichero lo que hace es un ls
+ * Actualmente obtiene el path del primer archivo de origen
 */
 
 #include "iostream" //Importante para poder imprimir por pantalla entre otras cosas
 #include <fstream>  //Manejo de ficheros de entrada y salida
 #include <cstring>  //Utilizado para comparar Strings
 #include <dirent.h> //Manejo entre directorios
-#include <sys/types.h>
+#include <sys/types.h> 
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,9 +21,9 @@ int main(int argc, char *argv[])
     char destino[9] = "destino/";
     strcat(destino, "/");
 
-    struct dirent *eDirOrigen;          //Lee los ficheros que hay en el Directorio de origen
-    DIR *dirOrigen = opendir(origen);   //Obtengo todos los ficheros del origen
-    DIR *dirDestino = opendir(destino); //Obtengo todos los ficheros del destino
+    struct dirent *eDirOrigen;          //Es un puntero Dirent
+    DIR *dirOrigen = opendir(origen);   //Abro el gestor de directorio de origen
+    DIR *dirDestino = opendir(destino); //Abro el gestor de directorio de destino
     char ficheroPath[strlen(origen)];   //para obtener el path del fichero según cada elemento
 
     //Mientras existan ficheros en la carpeta
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 }
 
 int operation(char *fichero){
-   
+
 
 
 
