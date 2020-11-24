@@ -10,7 +10,8 @@
 using namespace std;
 
 int operation(char *fichero);
-int comprobarBMP(char *fichero);
+unsigned char *comprobarBMP(char *fichero);
+
 int main(int argc, char *argv[])
 {
     //Si el número de argumentos que me pasa el programa es menor que 4 es que está mal
@@ -39,17 +40,17 @@ int main(int argc, char *argv[])
     if (origen[strlen(origen) - 1] != '/')
         strcat(origen, "/"); //En el caso de que no exista la barra en dir origen
     if (destino[strlen(destino) - 1] != '/')
-        strcat(destino, "/");                         //En el caso de que no exista la barra en dir origen
+        strcat(destino, "/"); //En el caso de que no exista la barra en dir origen
 
     while ((eDirOrigen = readdir(dirOrigen)) != NULL) //Mientras el elemento que me pase el directorio no sea nulo
     {
         if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) //Evito que utilicen como fichero el . y ..
         {
             char *filePath = new char[0];
-            strcat(filePath, origen);                  //Copio al filePath la carpeta de origen
-            strcat(filePath,eDirOrigen->d_name);       //Copio el nombre del fichero
-            comprobarBMP(filePath);                    //Comprobar si es un BMP
-            operation(filePath);                       //realizo la operación que me ha pedido
+            strcat(filePath, origen);                       //Copio al filePath la carpeta de origen
+            strcat(filePath, eDirOrigen->d_name);           //Copio el nombre del fichero
+             comprobarBMP(filePath); //Comprobar si es un BMP unsigned char *imagen =
+            operation(filePath);                            //realizo la operación que me ha pedido
         }
     }
     return 0;
@@ -57,38 +58,56 @@ int main(int argc, char *argv[])
 
 int operation(char *fichero)
 {
+
     cout << fichero << "\n";
     return 0;
 }
 
-int comprobarBMP(char *fichero)
+unsigned char *comprobarBMP(char *fichero)
 {
     FILE *fd = fopen(fichero, "rb");
-    unsigned char info[54];
-    fread(info, sizeof(unsigned char), 54, fd); // read the 54-byte header
+    unsigned char info[59];
+    fread(info, sizeof(unsigned char), 59, fd); // read the 54-byte header
     if (info[0] != 'B' || info[1] != 'M')
     {
         cout << "El archivo insertado no es un .bmp\n";
-        return -1;
+        return NULL;
     }
     else if (*(char *)&info[26] != 1)
     {
         cout << "El número de planos es superior a lo establecido (default = 1)\n";
-        return -1;
+        return NULL;
     }
     else if (*(char *)&info[28] != 24)
     {
         cout << "El tamaño por punto es diferente a lo establecido (default = 24)\n";
-        return -1;
+        return NULL;
     }
     else if (*(char *)&info[30] != 0)
     {
         cout << "La compresión no es correcta (default = 0)\n";
-        return -1;
+        return NULL;
     }
     else
     {
         cout << "Tipo de archivo correcto\n";
+        // extract image height and width from header
+        int width = *(int *)&info[18];
+        int height = *(int *)&info[22];
+        int size = 3 * width * height;
+
+        unsigned char *data = new unsigned char[size]; // allocate 3 bytes per pixel
+        fread(data, sizeof(unsigned char), size, fd);  // read the rest of the data at once
+        fclose(fd);
+
+        cout<<sizeof(data)<<"\n";
+        cout<<"------------------\n";
+        FILE *escribir = fopen("destino/blanco.bmp", "wb");
+        fwrite(info, sizeof(unsigned char), 59, escribir);
+        fwrite(data, sizeof(unsigned char), size, escribir);
+        fclose(escribir);
+
+
+        return data;
     }
-    return 0;
 }
