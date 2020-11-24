@@ -25,60 +25,70 @@ int main(int argc, char *argv[])
         perror("No existe ese tipo");
         return -1;
     }
-    struct dirent *eDirOrigen;          //Lee los ficheros que hay en el Directorio de origen
-    DIR *dirOrigen = opendir(argv[2]);  //Obtengo todos los ficheros del origen
-    DIR *dirDestino = opendir(argv[2]); //Obtengo todos los ficheros del destino
     char *origen = argv[2];             //El path origen que me han pasado
-    char *destino = argv[3];
-    if(origen[strlen(origen)-1] != '/') strcat(origen, "/"); //En el caso de que no exista la barra en dir origen
-    if(destino[strlen(destino)-1] != '/') strcat(destino, "/"); //En el caso de que no exista la barra en dir origen
-    char *filePath = (char *) malloc (strlen(origen));   //para obtener el path del fichero según cada elemento
-
+    char *destino = argv[3];            //El path origen que me han pasado
+    struct dirent *eDirOrigen;          //Lee los ficheros que hay en el Directorio de origen
+    DIR *dirOrigen = opendir(origen);   //Obtengo todos los ficheros del origen
+    DIR *dirDestino = opendir(destino); //Obtengo todos los ficheros del destino
     //Debe de existir los dos directorios
-    if (dirOrigen == NULL || dirDestino == NULL) 
+    if (dirOrigen == NULL || dirDestino == NULL)
     {
         perror("No existe uno de los directorios que has pasado por argumento");
         return -1;
     }
-        while ((eDirOrigen = readdir(dirOrigen)) != NULL) //Mientras el elemento que me pase el directorio no sea nulo
+    if (origen[strlen(origen) - 1] != '/')
+        strcat(origen, "/"); //En el caso de que no exista la barra en dir origen
+    if (destino[strlen(destino) - 1] != '/')
+        strcat(destino, "/");                         //En el caso de que no exista la barra en dir origen
+
+    while ((eDirOrigen = readdir(dirOrigen)) != NULL) //Mientras el elemento que me pase el directorio no sea nulo
+    {
+        if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) //Evito que utilicen como fichero el . y ..
         {
-            memcpy(filePath, argv[2], strlen(argv[2])); //Reconvierto el path origen
-            if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) //Evito que utilicen como fichero el . y ..
-            {
-                cout << eDirOrigen->d_name << "\n";      //Hace el ls del directorio que le has pasado sin puntos
-                strcat(filePath, eDirOrigen->d_name); //copio el fichero al final del path
-                comprobarBMP(filePath);
-                operation(filePath);                  //realizo la operación que me ha pedido
-            }
+            char *filePath = new char[0];
+            strcat(filePath, origen);                  //Copio al filePath la carpeta de origen
+            strcat(filePath,eDirOrigen->d_name);       //Copio el nombre del fichero
+            comprobarBMP(filePath);                    //Comprobar si es un BMP
+            operation(filePath);                       //realizo la operación que me ha pedido
         }
-    free(filePath);
+    }
     return 0;
 }
 
-int operation(char *fichero){
+int operation(char *fichero)
+{
+    cout << fichero << "\n";
     return 0;
 }
 
-int comprobarBMP(char *fichero){
-    FILE* fd = fopen(fichero, "rb");
+int comprobarBMP(char *fichero)
+{
+    FILE *fd = fopen(fichero, "rb");
     unsigned char info[54];
     fread(info, sizeof(unsigned char), 54, fd); // read the 54-byte header
     if (info[0] != 'B' || info[1] != 'M')
     {
-        cout<<"El archivo insertado no es un .bmp\n";
-        return -1;
-    }else if (*(char*)&info[26] != 1){
-        cout<<"El número de planos es superior a lo establecido (default = 1)\n";
-        return -1;
-    }else if (*(char*)&info[28] != 24){
-        cout<<"El tamaño por punto es diferente a lo establecido (default = 24)\n";
-        return -1;
-    }else if (*(char*)&info[30] != 0){
-        cout<<"La compresión no es correcta (default = 0)\n";
+        cout << "El archivo insertado no es un .bmp\n";
         return -1;
     }
-    else{
-        cout<<"Tipo de archivo correcto\n";
+    else if (*(char *)&info[26] != 1)
+    {
+        cout << "El número de planos es superior a lo establecido (default = 1)\n";
+        return -1;
+    }
+    else if (*(char *)&info[28] != 24)
+    {
+        cout << "El tamaño por punto es diferente a lo establecido (default = 24)\n";
+        return -1;
+    }
+    else if (*(char *)&info[30] != 0)
+    {
+        cout << "La compresión no es correcta (default = 0)\n";
+        return -1;
+    }
+    else
+    {
+        cout << "Tipo de archivo correcto\n";
     }
     return 0;
 }
