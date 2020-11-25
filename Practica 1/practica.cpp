@@ -7,10 +7,17 @@
 #include <cstring>  //Utilizado para comparar Strings
 #include <dirent.h> //Manejo entre directorios
 
+char *origen;  //El path origen que me han pasado
+char *destino; //El path origen que me han pasado
+int op = -1;
 using namespace std;
 
-int operation(char *fichero);
-unsigned char *comprobarBMP(char *fichero);
+char *obtenerFilePath(char *path,char *fichero);
+int comprobarBMP(unsigned char *info);
+int operacion(char *fichero);
+unsigned char * gauss(int anchura, int altura, int size, unsigned char *imagenOrigen);
+unsigned char * sobel(int anchura, int altura, int size, unsigned char *imagenOrigen);
+
 
 int main(int argc, char *argv[])
 {
@@ -21,13 +28,21 @@ int main(int argc, char *argv[])
         return -1;
     }
     //En el caso de que no sea ninguno de estos el tipo pasado por argumento
-    if (strcmp(argv[1], "copy") && strcmp(argv[1], "gauss") && strcmp(argv[1], "sobel"))
+
+    if (strcmp(argv[1], "copy"))
+        op = 1;
+    else if (strcmp(argv[1], "gauss"))
+        op = 2;
+    else if (strcmp(argv[1], "sobel"))
+        op = 3;
+    if (op == -1)
     {
-        perror("No existe ese tipo");
+        perror("No se ha establecido un operador valido");
         return -1;
     }
-    char *origen = argv[2];             //El path origen que me han pasado
-    char *destino = argv[3];            //El path origen que me han pasado
+
+    origen = argv[2];                   //El path origen que me han pasado
+    destino = argv[3];                  //El path origen que me han pasado
     struct dirent *eDirOrigen;          //Lee los ficheros que hay en el Directorio de origen
     DIR *dirOrigen = opendir(origen);   //Obtengo todos los ficheros del origen
     DIR *dirDestino = opendir(destino); //Obtengo todos los ficheros del destino
@@ -46,68 +61,122 @@ int main(int argc, char *argv[])
     {
         if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) //Evito que utilicen como fichero el . y ..
         {
-            char *filePath = new char[0];
-            strcat(filePath, origen);                       //Copio al filePath la carpeta de origen
-            strcat(filePath, eDirOrigen->d_name);           //Copio el nombre del fichero
-             comprobarBMP(filePath); //Comprobar si es un BMP unsigned char *imagen =
-            operation(filePath);                            //realizo la operación que me ha pedido
+            if (operacion(eDirOrigen->d_name) == -1)
+                return -1; //Tareas de la imagen
         }
     }
     return 0;
 }
 
-int operation(char *fichero)
+int operacion(char *fichero)
 {
+    char *filePathOrigen = obtenerFilePath(origen, fichero);
+    int sInfo = 59;
+    FILE *leer = fopen(filePathOrigen, "rb");
+    if (leer == NULL)
+    {
+        perror("Ha dado error la lectura del fichero");
+        return -1;
+    }
+    unsigned char info[59];
+    fread(info, sizeof(unsigned char), sInfo, leer);
+    if (comprobarBMP(info) == -1)
+        return -1;
+    int width = *(int *)&info[18];
+    int height = *(int *)&info[22];
+    int size = 3 * width * height;
 
-    cout << fichero << "\n";
+    unsigned char *imagenOrigen = new unsigned char[size]; // allocate 3 bytes per pixel
+    if ((fread(imagenOrigen, sizeof(unsigned char), size, leer)) == 0)
+    {
+        perror("Error en la lectura de la imagen");
+        fclose(leer);
+        return -1;
+    }
+    fclose(leer);
+    unsigned char *imagenDestino;
+    switch (op)
+    {
+    case 1:
+        imagenDestino = imagenOrigen;
+        break;
+    case 2:
+        imagenDestino = gauss(width, height, size, imagenOrigen);
+        break;
+    case 3:
+        imagenDestino = sobel(width, height, size, imagenOrigen);
+        break;
+    default:
+        perror("El programa nunca debería llegar aqui");
+        return -1;
+    }
+
+    if(imagenDestino == NULL){
+        perror("La imagen generada ha fallado");
+        return -1;
+    }
+
+    char *filePathDestino = obtenerFilePath(destino, fichero); 
+   
+    FILE *escribir = fopen(filePathDestino, "wb");
+
+     cout<<"HOLA\n";
+    if( (fwrite(info, sizeof(unsigned char), 59, escribir)) == 0){
+        perror("Error al escribir la cabecera");
+        return -1;
+    }
+    cout<<"HOLA2\n";
+    if ( (fwrite(imagenDestino, sizeof(unsigned char), size, escribir)) == 0){
+        perror("Error al escribir el contenido de la imagen");
+        return -1;
+    }
+    
+    fclose(escribir);
     return 0;
 }
 
-unsigned char *comprobarBMP(char *fichero)
+int comprobarBMP(unsigned char *info)
 {
-    FILE *fd = fopen(fichero, "rb");
-    unsigned char info[59];
-    fread(info, sizeof(unsigned char), 59, fd); // read the 54-byte header
+
     if (info[0] != 'B' || info[1] != 'M')
     {
         cout << "El archivo insertado no es un .bmp\n";
-        return NULL;
+        return -1;
     }
     else if (*(char *)&info[26] != 1)
     {
         cout << "El número de planos es superior a lo establecido (default = 1)\n";
-        return NULL;
+        return -1;
     }
     else if (*(char *)&info[28] != 24)
     {
         cout << "El tamaño por punto es diferente a lo establecido (default = 24)\n";
-        return NULL;
+        return -1;
     }
     else if (*(char *)&info[30] != 0)
     {
         cout << "La compresión no es correcta (default = 0)\n";
-        return NULL;
+        return -1;
     }
-    else
-    {
-        cout << "Tipo de archivo correcto\n";
-        // extract image height and width from header
-        int width = *(int *)&info[18];
-        int height = *(int *)&info[22];
-        int size = 3 * width * height;
+    return 0;
+}
 
-        unsigned char *data = new unsigned char[size]; // allocate 3 bytes per pixel
-        fread(data, sizeof(unsigned char), size, fd);  // read the rest of the data at once
-        fclose(fd);
-
-        cout<<sizeof(data)<<"\n";
-        cout<<"------------------\n";
-        FILE *escribir = fopen("destino/blanco.bmp", "wb");
-        fwrite(info, sizeof(unsigned char), 59, escribir);
-        fwrite(data, sizeof(unsigned char), size, escribir);
-        fclose(escribir);
+char *obtenerFilePath(char *path,char *fichero)
+{
+    char *filePath = new char[0];
+    strcat(filePath, path);  //Copio al filePath la carpeta de origen
+    strcat(filePath, fichero); //Copio el nombre del fichero
+    return filePath;
+}
 
 
-        return data;
-    }
+unsigned char *gauss(int anchura, int altura, int size, unsigned char *imagenOrigen){
+    cout<<anchura<<altura<<size<<"\n";
+    
+    return imagenOrigen;
+}
+
+unsigned char * sobel(int anchura, int altura, int size, unsigned char *imagenOrigen){
+    cout<<anchura<<altura<<size<<"\n";
+    return imagenOrigen;
 }
