@@ -85,6 +85,8 @@ int main(int argc, char *argv[])
                 return -1;
         }
     }
+    closedir(origen);
+    closedir(destino);
     return 0;
 }
 
