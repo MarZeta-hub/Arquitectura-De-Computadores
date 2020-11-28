@@ -7,6 +7,7 @@
 #include <cstring>  //Utilizado para comparar Strings
 #include <dirent.h> //Manejo entre directorios
 #include <cmath>
+#include <chrono>
 
 char *origen;  //El path origen que me han pasado
 char *destino; //El path origen que me han pasado
@@ -35,7 +36,7 @@ typedef struct infoImagen
 
 typedef struct tiempo{
     int total = 0;
-    int loadTime = 0;
+    long loadTime = 0;
     int gaussTime = 0;
     int sobelTime = 0;
     int storeTime = 0;
@@ -124,13 +125,16 @@ int main(int argc, char *argv[])
         if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) // Evito que utilicen como fichero el . y ..
         {
             tiempo time;
+            auto start_time = chrono::high_resolution_clock::now();
             if (operacion(eDirOrigen->d_name, &time) == -1) // Tareas de la imagen
                 return -1;
+            auto end_time = chrono::high_resolution_clock::now();
+            time.total = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
             cout << "File: \"" << origen << eDirOrigen->d_name << "\" (time: " << time.total << ")\n"
             << "  Load time: " << time.loadTime << "\n"
-            << "  Store time: " << time.storeTime << "\n"
             << "  Sobel time: " << time.sobelTime << "\n"
-            << "  Gauss time: " << time.gaussTime << "\n";
+            << "  Gauss time: " << time.gaussTime << "\n"
+            << "  Store time: " << time.storeTime << "\n";
         }
     }
     closedir(dirOrigen);  //Cierro el directorio de origen
@@ -144,34 +148,52 @@ int operacion(char *fichero, tiempo *time)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
     short error = 0;
+
+    /*---------------- Leer Imagen -------------------*/
+    auto start_time = chrono::high_resolution_clock::now();
     infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
-    time->loadTime = 0;
+    auto end_time = chrono::high_resolution_clock::now();
+    time->loadTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
     if (error != 0)
         return -1;
     free(filePathOrigen);
+
+    /*---------------- Gauss -------------------*/
+    start_time = chrono::high_resolution_clock::now();
     infoImagen imagenDestinoGauss = gauss(imagenOrigen);
-    time->gaussTime = 0;
-    time->sobelTime = 0;
+    end_time = chrono::high_resolution_clock::now();
+    time->gaussTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+
+    /*---------------- Sobel -------------------*/
+    start_time = chrono::high_resolution_clock::now();
     infoImagen imagenDestinoSobel = sobel(imagenOrigen);
-        switch (op)
+    end_time = chrono::high_resolution_clock::now();
+    time->sobelTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+
+    /* Elegir la imagen que se va a Escribir */
+    switch (op)
     {
     case 1:
         break;
     case 2:
-        imagenOrigen = imagenDestinoGauss;
+        imagenOrigen = imagenDestinoGauss; // En el caso de Gauss
         break;
     case 3:
-        imagenOrigen = imagenDestinoSobel;
+        imagenOrigen = imagenDestinoSobel; // En el caso de Sobel
         break;
     default:
         perror("El programa nunca debería llegar aqui");
         return -1;
     }
-    time->storeTime = 0;
     char *filePathDestino = obtenerFilePath(destino, fichero);
+
+    /*---------------- Escribir el nuevo fichero -------------------*/
+    start_time = chrono::high_resolution_clock::now();
     escribirImagen(filePathDestino, imagenOrigen);
-    free(imagenOrigen.imagen);
-    free(filePathDestino);
+    end_time = chrono::high_resolution_clock::now();
+    time->storeTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    free(imagenOrigen.imagen); //Liberar la imagen leida y sobreescrita
+    free(filePathDestino); //Liberar el path de destino
     return 0;
 }
 
