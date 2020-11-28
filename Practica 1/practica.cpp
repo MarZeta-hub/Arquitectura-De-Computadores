@@ -14,41 +14,71 @@ int op = -1;
 
 typedef struct infoImagen
 {
-    char *BM;   // Array de chars "BM"
-    int sFile;  // Tamaño del fichero
-    int reservado;  //Espacio reservado
-    int offsetImagen; //Inicio del contenido de los pixeles de la imagen
-    int sCabecera; // Tamaño de la cabecera
-    int anchura; // Anchura de la imagen
-    int altura; // Altura de la imagen
-    short nPlanos; // Numero de planos de la imagen
-    short bitPorPixel; //Bits por pixeles de la imange
-    int compresion; // Compresion de la imagen
-    int sImagen; // Tamaño total solo de la imagen (altura*anchura*3)
-    int rX; // Resolucion horizontal
-    int rY; // Resolucion vertical
-    int sColor; // Tamaño de la tabla de color
-    int colorImportante; // Colores Importantes
+    char B;                // Array de chars "BM"
+    char M;                // Array de chars "BM"
+    int sFile;             // Tamaño del fichero
+    int reservado;         //Espacio reservado
+    int offsetImagen;      //Inicio del contenido de los pixeles de la imagen
+    int sCabecera;         // Tamaño de la cabecera
+    int anchura;           // Anchura de la imagen
+    int altura;            // Altura de la imagen
+    short nPlanos;         // Numero de planos de la imagen
+    short bitPorPixel;     //Bits por pixeles de la imange
+    int compresion;        // Compresion de la imagen
+    int sImagen;           // Tamaño total solo de la imagen (altura*anchura*3)
+    int rX;                // Resolucion horizontal
+    int rY;                // Resolucion vertical
+    int sColor;            // Tamaño de la tabla de color
+    int colorImportante;   // Colores Importantes
     unsigned char *imagen; // Datos de la imange BMP
 } infoImagen;
 
+typedef struct tiempo{
+    int total = 0;
+    int loadTime = 0;
+    int gaussTime = 0;
+    int sobelTime = 0;
+    int storeTime = 0;
+
+}tiempo;
 using namespace std;
 
 char *obtenerFilePath(char *path, char *fichero);
-int operacion(char *fichero);
-infoImagen leerImagen(const char *fileName);
+int operacion(char *fichero, tiempo *time);
+infoImagen leerImagen(const char *fileName, short *error);
 void escribirImagen(const char *filePathDestino, infoImagen imagen);
 infoImagen gauss(infoImagen imagen);
 infoImagen sobel(infoImagen datos);
-
+int comprobarBMP(infoImagen datos);
+void printError(int tipo, char **argv)
+{
+    switch (tipo)
+    {
+    case 0:
+        cout << "Wrong format:\n";
+        break;
+    case 1:
+        cout << "Unexpected operation: " << argv[1] << "\n";
+        break;
+    case 2:
+        cout << "Cannot open directory [" << argv[2] << "]\n";
+        break;
+    case 3:
+        cout << "Output directory [" << argv[3] << "] does not exist\n";
+        break;
+    }
+    cout << "  image-seq operation in_path out_path\n    operation: copy, gauss, sobel\n$\n";
+}
 int main(int argc, char *argv[])
 {
+    cout << "$image-seq ";
     //Si el número de argumentos que me pasa el programa es menor que 4 es que está mal
     if (argc != 4)
     {
-        perror("El número de parámetros no es correcto");
+        printError(0, argv);
         return -1;
     }
+    cout << argv[1] << " " << argv[2] << " " << argv[3] << "\n";
     //Obtener la operación pasada por argumento
     if (strcmp(argv[1], "copy") == 0)
     {
@@ -64,63 +94,82 @@ int main(int argc, char *argv[])
     }
     else
     {
-        perror("No se ha establecido un operador valido");
+        printError(1, argv);
         return -1;
     }
-
-    origen = argv[2];                   // El path origen que me han pasado
-    destino = argv[3];                  // El path destino que me han pasado
+    origen = argv[2];  // El path origen que me han pasado
+    destino = argv[3]; // El path destino que me han pasado
+    cout << "Input path: " << origen << "\n"
+         << "Output path: " << destino << "\n";
     struct dirent *eDirOrigen;          // Lee los ficheros que hay en el directorio de origen
     DIR *dirOrigen = opendir(origen);   // Obtengo todos los ficheros del origen
     DIR *dirDestino = opendir(destino); // Obtengo todos los ficheros del destino
     // Debe de existir los dos directorios
-    if (dirOrigen == NULL || dirDestino == NULL)
+    if (dirOrigen == NULL)
     {
-        perror("No existe uno de los directorios que has pasado por argumento");
+        printError(2, argv);
+        return -1;
+    }
+    if (dirDestino == NULL)
+    {
+        printError(3, argv);
         return -1;
     }
     if (origen[strlen(origen) - 1] != '/')
         strcat(origen, "/"); // En el caso de que no exista la barra en dir origen
     if (destino[strlen(destino) - 1] != '/')
         strcat(destino, "/"); // En el caso de que no exista la barra en dir origen
-
     while ((eDirOrigen = readdir(dirOrigen)) != NULL) // Mientras el elemento que me pase el directorio no sea nulo
     {
         if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) // Evito que utilicen como fichero el . y ..
         {
-            if (operacion(eDirOrigen->d_name) == -1) // Tareas de la imagen
+            tiempo time;
+            if (operacion(eDirOrigen->d_name, &time) == -1) // Tareas de la imagen
                 return -1;
+            cout << "File: \"" << origen << eDirOrigen->d_name << "\" (time: " << time.total << ")\n"
+            << "  Load time: " << time.loadTime << "\n"
+            << "  Store time: " << time.storeTime << "\n"
+            << "  Sobel time: " << time.sobelTime << "\n"
+            << "  Gauss time: " << time.gaussTime << "\n";
         }
     }
-    closedir(dirOrigen);    //Cierro el directorio de origen
-    closedir(dirDestino);    //Cierro el directorio de destino
+    closedir(dirOrigen);  //Cierro el directorio de origen
+    closedir(dirDestino); //Cierro el directorio de destino
+    cout << "$\n";
     return 0;
 }
 
 /* Esta función realiza la acción indicada por el usuario a cada uno de los archivos */
-int operacion(char *fichero)
+int operacion(char *fichero, tiempo *time)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
-    infoImagen imagenOrigen = leerImagen(filePathOrigen);
+    short error = 0;
+    infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
+    time->loadTime = 0;
+    if (error != 0)
+        return -1;
     free(filePathOrigen);
-    infoImagen imagenDestino;
-    switch (op)
+    infoImagen imagenDestinoGauss = gauss(imagenOrigen);
+    time->gaussTime = 0;
+    time->sobelTime = 0;
+    infoImagen imagenDestinoSobel = sobel(imagenOrigen);
+        switch (op)
     {
     case 1:
-        imagenDestino = imagenOrigen;
         break;
     case 2:
-        imagenDestino = gauss(imagenOrigen);
+        imagenOrigen = imagenDestinoGauss;
         break;
     case 3:
-        imagenDestino = sobel(imagenOrigen);
+        imagenOrigen = imagenDestinoSobel;
         break;
     default:
         perror("El programa nunca debería llegar aqui");
         return -1;
     }
+    time->storeTime = 0;
     char *filePathDestino = obtenerFilePath(destino, fichero);
-    escribirImagen(filePathDestino , imagenDestino);
+    escribirImagen(filePathDestino, imagenOrigen);
     free(imagenOrigen.imagen);
     free(filePathDestino);
     return 0;
@@ -137,7 +186,7 @@ char *obtenerFilePath(char *path, char *fichero)
 
 /* Esta función lee la imagen que ha recibido por parámetro y comprueba que todos los parámetros necesarios 
    son correctos. También actualiza los valores anchura y altura pasados por parámetro*/
-infoImagen leerImagen(const char *fileName)
+infoImagen leerImagen(const char *fileName, short *error)
 {
     FILE *leerDF = fopen(fileName, "rb"); // Descriptor de fichero de la imagen
     infoImagen tmp;
@@ -145,8 +194,13 @@ infoImagen leerImagen(const char *fileName)
     fread(&tmp.sFile, sizeof(int), 6, leerDF);
     fread(&tmp.nPlanos, sizeof(short), 2, leerDF);
     fread(&tmp.compresion, sizeof(int), 6, leerDF);
+    if (comprobarBMP(tmp) != 0)
+    {
+        *error = 1;
+        return tmp;
+    }
     tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
-    fseek(leerDF,tmp.offsetImagen, SEEK_SET);
+    fseek(leerDF, tmp.offsetImagen, SEEK_SET);
     fread(tmp.imagen, tmp.sImagen, 1, leerDF);
     fclose(leerDF); // Cierro el descriptor de fichero
     return tmp;
@@ -158,24 +212,55 @@ void escribirImagen(const char *fileName, infoImagen imagen)
 {
     FILE *escribirDF = fopen(fileName, "wb");
     // Escribir cada uno de los parámetros de la cabecera
-    fwrite(&imagen, 1, 2, escribirDF); // Escribo BM 
-    fwrite(&imagen.sFile, sizeof(int), 6, escribirDF); //Escribo los siguientes enteros de la cabecera
-    fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF); // Escribo los shorts de la cabecera
+    fwrite(&imagen, 1, 2, escribirDF);                      // Escribo BM
+    fwrite(&imagen.sFile, sizeof(int), 6, escribirDF);      //Escribo los siguientes enteros de la cabecera
+    fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF);  // Escribo los shorts de la cabecera
     fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); //Escribo los últimos enteros de la cabecera
-    fseek(escribirDF,imagen.offsetImagen, SEEK_SET); // Establezco la posición donde se escribe la imagen
-    fwrite(imagen.imagen, imagen.sImagen, 1, escribirDF); // Escribo la imagen
-    fclose(escribirDF); // Cierro el descriptor de fichero de escribir
+    fseek(escribirDF, imagen.offsetImagen, SEEK_SET);       // Establezco la posición donde se escribe la imagen
+    fwrite(imagen.imagen, imagen.sImagen, 1, escribirDF);   // Escribo la imagen
+    fclose(escribirDF);                                     // Cierro el descriptor de fichero de escribir
+}
+
+int comprobarBMP(infoImagen datos)
+{
+
+    if (datos.B != 'B' || datos.M != 'M')
+    {
+        perror("El archivo no es BMP");
+        return -1;
+    }
+    else if (datos.nPlanos != 1)
+    {
+        perror("El número de planos es distinto de 1");
+        return -1;
+    }
+    else if (datos.bitPorPixel != 24)
+    {
+        perror("El número de bits por pixel no es 24");
+        return -1;
+    }
+    else if (datos.compresion != 0)
+    {
+        perror("La compresion del archivo no es 0");
+        return -1;
+    }
+    return 0;
 }
 
 infoImagen gauss(infoImagen datos)
 {
-    cout << "utilizando Gauss valor de anchura y tal" << datos.anchura << "\n";
-
-    return datos;
+    infoImagen tmp = datos;
+    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
+    if (op != 2)
+        free(tmp.imagen);
+    return tmp;
 }
 
 infoImagen sobel(infoImagen datos)
 {
-    cout << "utilizando Sobel valor de anchura y tal" << datos.anchura << "\n";
-    return datos;
+    infoImagen tmp = datos;
+    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
+    if (op != 3)
+        free(tmp.imagen);
+    return tmp;
 }
