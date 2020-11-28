@@ -11,28 +11,35 @@
 char *origen;  //El path origen que me han pasado
 char *destino; //El path origen que me han pasado
 int op = -1;
-const char *BM = "BM";
-const int RESERVADO = 0;
-const int BYTEPORPIXEL = 3;
-const int SINFOCABECERA = 40;
-const int SCABECERA = 14;
-const int OFFSETIMAGEN = SINFOCABECERA + SCABECERA;
-const short NPLANOS = 1;
-const short BITSPORPIXEL = BYTEPORPIXEL * 8;
-const short INFOSHORT[] = {NPLANOS, BITSPORPIXEL};
-const int COMPRESION = 0;
-const int RESOLUCIONX = 11811; //300 dpi
-const int RESOLUCIONY = 11811; //300 dpi
-const int SCOLOR = 0;
-const int COLORESIMPORTANTES = 0;
+
+typedef struct infoImagen
+{
+    char *BM;   // Array de chars "BM"
+    int sFile;  // Tamaño del fichero
+    int reservado;  //Espacio reservado
+    int offsetImagen; //Inicio del contenido de los pixeles de la imagen
+    int sCabecera; // Tamaño de la cabecera
+    int anchura; // Anchura de la imagen
+    int altura; // Altura de la imagen
+    short nPlanos; // Numero de planos de la imagen
+    short bitPorPixel; //Bits por pixeles de la imange
+    int compresion; // Compresion de la imagen
+    int sImagen; // Tamaño total solo de la imagen (altura*anchura*3)
+    int rX; // Resolucion horizontal
+    int rY; // Resolucion vertical
+    int sColor; // Tamaño de la tabla de color
+    int colorImportante; // Colores Importantes
+    unsigned char *imagen; // Datos de la imange BMP
+} infoImagen;
+
 using namespace std;
 
 char *obtenerFilePath(char *path, char *fichero);
 int operacion(char *fichero);
-unsigned char *leerImagen(const char *fileName, int *anchura, int *altura);
-void escribirImagen(const char *fileName, unsigned char *pixelsImagen, int anchura, int altura);
-unsigned char *gauss(int anchura, int altura, int size, unsigned char *imagenOrigen);
-unsigned char *sobel(int anchura, int altura, int size, unsigned char *imagenOrigen);
+infoImagen leerImagen(const char *fileName);
+void escribirImagen(const char *filePathDestino, infoImagen imagen);
+infoImagen gauss(infoImagen imagen);
+infoImagen sobel(infoImagen datos);
 
 int main(int argc, char *argv[])
 {
@@ -45,15 +52,15 @@ int main(int argc, char *argv[])
     //Obtener la operación pasada por argumento
     if (strcmp(argv[1], "copy") == 0)
     {
-        op = 1;
+        op = 1; //En el caso de que el trabajo sea copy
     }
     else if (strcmp(argv[1], "gauss") == 0)
     {
-        op = 2;
+        op = 2; //En el caso de que el trabajo sea gauss
     }
     else if (strcmp(argv[1], "sobel") == 0)
     {
-        op = 3;
+        op = 3; //En el caso de que el trabajo sea sobel
     }
     else
     {
@@ -85,8 +92,8 @@ int main(int argc, char *argv[])
                 return -1;
         }
     }
-    closedir(origen);
-    closedir(destino);
+    closedir(dirOrigen);    //Cierro el directorio de origen
+    closedir(dirDestino);    //Cierro el directorio de destino
     return 0;
 }
 
@@ -94,38 +101,27 @@ int main(int argc, char *argv[])
 int operacion(char *fichero)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
-    int anchura = 0;
-    int altura = 0;
-    unsigned char *imagenOrigen = leerImagen(filePathOrigen, &anchura, &altura);
+    infoImagen imagenOrigen = leerImagen(filePathOrigen);
     free(filePathOrigen);
-    int size = anchura * altura * 3;
-    unsigned char *imagenDestino;
-
+    infoImagen imagenDestino;
     switch (op)
     {
     case 1:
         imagenDestino = imagenOrigen;
         break;
     case 2:
-        imagenDestino = gauss(anchura, altura, size, imagenOrigen);
+        imagenDestino = gauss(imagenOrigen);
         break;
     case 3:
-        imagenDestino = sobel(anchura, altura, size, imagenOrigen);
+        imagenDestino = sobel(imagenOrigen);
         break;
     default:
         perror("El programa nunca debería llegar aqui");
         return -1;
     }
-
-    if (imagenDestino == NULL)
-    {
-        perror("La imagen generada ha fallado");
-        return -1;
-    }
-
     char *filePathDestino = obtenerFilePath(destino, fichero);
-    escribirImagen(filePathDestino, imagenDestino, anchura, altura);
-    free(imagenOrigen);
+    escribirImagen(filePathDestino , imagenDestino);
+    free(imagenOrigen.imagen);
     free(filePathDestino);
     return 0;
 }
@@ -141,66 +137,45 @@ char *obtenerFilePath(char *path, char *fichero)
 
 /* Esta función lee la imagen que ha recibido por parámetro y comprueba que todos los parámetros necesarios 
    son correctos. También actualiza los valores anchura y altura pasados por parámetro*/
-unsigned char *leerImagen(const char *fileName, int *anchura, int *altura)
+infoImagen leerImagen(const char *fileName)
 {
     FILE *leerDF = fopen(fileName, "rb"); // Descriptor de fichero de la imagen
-    int dataOffset;
-    // Obtener desde donde empieza la imagen, la anchura y la altura
-    fseek(leerDF, 10, SEEK_SET); // Posición del valor de donde empieza la imagen
-    fread(&dataOffset, 4, 1, leerDF);
-    fseek(leerDF, 18, SEEK_SET); // Posición del valor de la anchura
-    fread(anchura, 4, 1, leerDF);
-    fread(altura, 4, 1, leerDF);
-    // Un BMP está escrito alrevés, es decir, al principio están los pixeles finales y al final los del principio
-    // Lo que vamos a hacer es obtener la imagen al derecho al leerla:
-    int anchuraTotal = (*anchura) * BYTEPORPIXEL;                                  // Lo que ocupa cada linea de la imagen
-    int size = anchuraTotal * (*altura);                                           // Tamano total de la parte de imagen, ya que cada pixel son 3 bytes
-    unsigned char *datosImagen = (unsigned char *)malloc(size);                    // Obtengo espacio para la imagen
-    unsigned char *posicionPuntero = datosImagen + ((*altura - 1) * anchuraTotal); // Leo primero los ultimos bytes
-    for (int i = 0; i < *altura; i++)
-    {
-        fseek(leerDF, dataOffset + (i * anchuraTotal), SEEK_SET); // Posiciono el cursor para leer la imagen
-        fread(posicionPuntero, 1, anchuraTotal, leerDF);          // Leo por lineas
-        posicionPuntero -= anchuraTotal;                          // Actualizo la linea siguiente
-    }
+    infoImagen tmp;
+    fread(&tmp, 1, 2, leerDF);
+    fread(&tmp.sFile, sizeof(int), 6, leerDF);
+    fread(&tmp.nPlanos, sizeof(short), 2, leerDF);
+    fread(&tmp.compresion, sizeof(int), 6, leerDF);
+    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
+    fseek(leerDF,tmp.offsetImagen, SEEK_SET);
+    fread(tmp.imagen, tmp.sImagen, 1, leerDF);
     fclose(leerDF); // Cierro el descriptor de fichero
-    return datosImagen;
+    return tmp;
 }
 
-/* Esta funcion obtiene todos los parametros necesarios para leer una imagen y escribe la imagen pasada por argumento
+/*Esta funcion obtiene todos los parametros necesarios para leer una imagen y escribe la imagen pasada por argumento
    ademas del lugar donde guardarla, la altura y la anchura*/
-void escribirImagen(const char *fileName, unsigned char *pixelsImagen, int anchura, int altura)
+void escribirImagen(const char *fileName, infoImagen imagen)
 {
     FILE *escribirDF = fopen(fileName, "wb");
-    int sTotal, anchuraTotal, sImagen;
-    anchuraTotal = (anchura)*3;
-    sTotal = anchuraTotal * altura + SCABECERA + SINFOCABECERA;
-    sImagen = anchura * altura * BYTEPORPIXEL;
-    int intInfoHeader[] = {sTotal, RESERVADO, OFFSETIMAGEN, SINFOCABECERA, anchura, altura, COMPRESION,
-                           sImagen, RESOLUCIONX, RESOLUCIONY, SCOLOR, COLORESIMPORTANTES};
     // Escribir cada uno de los parámetros de la cabecera
-    fwrite(BM, 1, 2, escribirDF);
-    fwrite(intInfoHeader, 4, 6, escribirDF);
-    fwrite(INFOSHORT, 2, 2, escribirDF);
-    fwrite(&intInfoHeader[6], 4, 6, escribirDF);
-    // Escribir la imagen de la cabecera de
-    for (int i = altura; i > 0; i--)
-    {
-        int pixelOffset = (i - 1) * anchuraTotal;
-        fwrite(&pixelsImagen[pixelOffset], 1, anchuraTotal, escribirDF);
-    }
-    fclose(escribirDF);
+    fwrite(&imagen, 1, 2, escribirDF); // Escribo BM 
+    fwrite(&imagen.sFile, sizeof(int), 6, escribirDF); //Escribo los siguientes enteros de la cabecera
+    fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF); // Escribo los shorts de la cabecera
+    fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); //Escribo los últimos enteros de la cabecera
+    fseek(escribirDF,imagen.offsetImagen, SEEK_SET); // Establezco la posición donde se escribe la imagen
+    fwrite(imagen.imagen, imagen.sImagen, 1, escribirDF); // Escribo la imagen
+    fclose(escribirDF); // Cierro el descriptor de fichero de escribir
 }
 
-unsigned char *gauss(int anchura, int altura, int size, unsigned char *imagenOrigen)
+infoImagen gauss(infoImagen datos)
 {
-    cout << "utilizando Gauss valor de anchura y tal" << anchura << altura << size << "\n";
+    cout << "utilizando Gauss valor de anchura y tal" << datos.anchura << "\n";
 
-    return imagenOrigen;
+    return datos;
 }
 
-unsigned char *sobel(int anchura, int altura, int size, unsigned char *imagenOrigen)
+infoImagen sobel(infoImagen datos)
 {
-    cout << "utilizando Sobel valor de anchura y tal" << anchura << altura << size << "\n";
-    return imagenOrigen;
+    cout << "utilizando Sobel valor de anchura y tal" << datos.anchura << "\n";
+    return datos;
 }
