@@ -235,9 +235,9 @@ void escribirImagen(const char *fileName, infoImagen imagen)
     FILE *escribirDF = fopen(fileName, "wb");
     // Escribir cada uno de los parámetros de la cabecera
     fwrite(&imagen, 1, 2, escribirDF);                      // Escribo BM
-    fwrite(&imagen.sFile, sizeof(int), 6, escribirDF);      //Escribo los siguientes enteros de la cabecera
+    fwrite(&imagen.sFile, sizeof(int), 6, escribirDF);      // Escribo los siguientes enteros de la cabecera
     fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF);  // Escribo los shorts de la cabecera
-    fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); //Escribo los últimos enteros de la cabecera
+    fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); // Escribo los últimos enteros de la cabecera
     fseek(escribirDF, imagen.offsetImagen, SEEK_SET);       // Establezco la posición donde se escribe la imagen
     fwrite(imagen.imagen, imagen.sImagen, 1, escribirDF);   // Escribo la imagen
     fclose(escribirDF);                                     // Cierro el descriptor de fichero de escribir
