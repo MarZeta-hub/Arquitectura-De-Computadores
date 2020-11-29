@@ -9,8 +9,8 @@
 #include <cmath>
 #include <chrono>
 
-char *origen;  //El path origen que me han pasado
-char *destino; //El path origen que me han pasado
+char origen[256];  //El path origen que me han pasado
+char destino[256]; //El path origen que me han pasado
 int op = -1;
 
 typedef struct infoImagen
@@ -34,14 +34,15 @@ typedef struct infoImagen
     unsigned char *imagen; // Datos de la imange BMP
 } infoImagen;
 
-typedef struct tiempo{
+typedef struct tiempo
+{
     int total = 0;
     long loadTime = 0;
     int gaussTime = 0;
     int sobelTime = 0;
     int storeTime = 0;
 
-}tiempo;
+} tiempo;
 using namespace std;
 
 char *obtenerFilePath(char *path, char *fichero);
@@ -98,8 +99,12 @@ int main(int argc, char *argv[])
         printError(1, argv);
         return -1;
     }
-    origen = argv[2];  // El path origen que me han pasado
-    destino = argv[3]; // El path destino que me han pasado
+    memcpy(origen, argv[2], strlen(argv[2]));
+    memcpy(destino, argv[3], strlen(argv[3]));
+    if (origen[strlen(origen) - 1] != '/')
+        strcat(origen, "/"); // En el caso de que no exista la barra en dir origen
+    if (destino[strlen(destino) - 1] != '/')
+        strcat(destino, "/"); // En el caso de que no exista la barra en dir origen
     cout << "Input path: " << origen << "\n"
          << "Output path: " << destino << "\n";
     struct dirent *eDirOrigen;          // Lee los ficheros que hay en el directorio de origen
@@ -116,10 +121,7 @@ int main(int argc, char *argv[])
         printError(3, argv);
         return -1;
     }
-    if (origen[strlen(origen) - 1] != '/')
-        strcat(origen, "/"); // En el caso de que no exista la barra en dir origen
-    if (destino[strlen(destino) - 1] != '/')
-        strcat(destino, "/"); // En el caso de que no exista la barra en dir origen
+
     while ((eDirOrigen = readdir(dirOrigen)) != NULL) // Mientras el elemento que me pase el directorio no sea nulo
     {
         if (strcmp(eDirOrigen->d_name, ".") && strcmp(eDirOrigen->d_name, "..")) // Evito que utilicen como fichero el . y ..
@@ -129,12 +131,12 @@ int main(int argc, char *argv[])
             if (operacion(eDirOrigen->d_name, &time) == -1) // Tareas de la imagen
                 return -1;
             auto end_time = chrono::high_resolution_clock::now();
-            time.total = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+            time.total = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
             cout << "File: \"" << origen << eDirOrigen->d_name << "\" (time: " << time.total << ")\n"
-            << "  Load time: " << time.loadTime << "\n"
-            << "  Sobel time: " << time.sobelTime << "\n"
-            << "  Gauss time: " << time.gaussTime << "\n"
-            << "  Store time: " << time.storeTime << "\n";
+                 << "  Load time: " << time.loadTime << "\n"
+                 << "  Sobel time: " << time.sobelTime << "\n"
+                 << "  Gauss time: " << time.gaussTime << "\n"
+                 << "  Store time: " << time.storeTime << "\n";
         }
     }
     closedir(dirOrigen);  //Cierro el directorio de origen
@@ -153,7 +155,7 @@ int operacion(char *fichero, tiempo *time)
     auto start_time = chrono::high_resolution_clock::now();
     infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
     auto end_time = chrono::high_resolution_clock::now();
-    time->loadTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+    time->loadTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     if (error != 0)
         return -1;
     free(filePathOrigen);
@@ -162,13 +164,13 @@ int operacion(char *fichero, tiempo *time)
     start_time = chrono::high_resolution_clock::now();
     infoImagen imagenDestinoGauss = gauss(imagenOrigen);
     end_time = chrono::high_resolution_clock::now();
-    time->gaussTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+    time->gaussTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     /*---------------- Sobel -------------------*/
     start_time = chrono::high_resolution_clock::now();
     infoImagen imagenDestinoSobel = sobel(imagenOrigen);
     end_time = chrono::high_resolution_clock::now();
-    time->sobelTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() ;
+    time->sobelTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     /* Elegir la imagen que se va a Escribir */
     switch (op)
@@ -193,7 +195,7 @@ int operacion(char *fichero, tiempo *time)
     end_time = chrono::high_resolution_clock::now();
     time->storeTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     free(imagenOrigen.imagen); //Liberar la imagen leida y sobreescrita
-    free(filePathDestino); //Liberar el path de destino
+    free(filePathDestino);     //Liberar el path de destino
     return 0;
 }
 
