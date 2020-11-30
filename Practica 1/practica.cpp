@@ -223,9 +223,24 @@ infoImagen leerImagen(const char *fileName, short *error)
         *error = 1;
         return tmp;
     }
-    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
-    fseek(leerDF, tmp.offsetImagen, SEEK_SET);
-    fread(tmp.imagen, tmp.sImagen, 1, leerDF);
+    int unpaddedRowSize = tmp.anchura * 3;
+    int paddedRowSize;
+    if (unpaddedRowSize % 4 != 0)
+        paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
+    else
+        paddedRowSize = unpaddedRowSize;
+    cout<<paddedRowSize<<" | "<<unpaddedRowSize<<"\n";
+
+    int totalSize = unpaddedRowSize * tmp.altura;
+    tmp.imagen = (unsigned char *)malloc(totalSize);
+
+    unsigned char *currentRowPointer = tmp.imagen + ((tmp.altura - 1) * unpaddedRowSize);
+	for (int i = 0; i < tmp.altura; i++)
+	{
+		fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET);
+		fread(currentRowPointer, 1, unpaddedRowSize, leerDF);
+		currentRowPointer -= unpaddedRowSize;
+	}
     fclose(leerDF); // Cierro el descriptor de fichero
     return tmp;
 }
@@ -241,8 +256,20 @@ void escribirImagen(const char *fileName, infoImagen imagen)
     fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF);  // Escribo los shorts de la cabecera
     fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); // Escribo los últimos enteros de la cabecera
     fseek(escribirDF, imagen.offsetImagen, SEEK_SET);       // Establezco la posición donde se escribe la imagen
-    fwrite(imagen.imagen, imagen.sImagen, 1, escribirDF);   // Escribo la imagen
-    fclose(escribirDF);                                     // Cierro el descriptor de fichero de escribir
+    int unpaddedRowSize = imagen.anchura * 3;
+    int paddedRowSize ;
+    if (unpaddedRowSize % 4 != 0)
+        paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
+    else
+        paddedRowSize = unpaddedRowSize;
+
+    cout<<paddedRowSize<<" | "<<unpaddedRowSize<<"\n";
+    for (int i = 0; i < imagen.altura; i++)
+    {
+        int pixelOffset = ((imagen.altura - i) - 1) * unpaddedRowSize;
+        fwrite(&imagen.imagen[pixelOffset], 1, paddedRowSize, escribirDF);
+    }
+    fclose(escribirDF); // Cierro el descriptor de fichero de escribir
 }
 
 int comprobarBMP(infoImagen datos)
