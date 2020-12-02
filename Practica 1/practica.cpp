@@ -342,9 +342,18 @@ unsigned char* gauss(infoImagen datos)
         for(int s = -2; s<=2; s++){
             for(int t = -2; t<=2; t++){
                 int byte = (i+(s*linea)+t*3);
-                    tmpB += mGauss[s+2][t+2] * pixels[cb(byte)];
-                    tmpG += mGauss[s+2][t+2] * pixels[cb(byte+1)];
-                    tmpR += mGauss[s+2][t+2] * pixels[cb(byte+2)];
+                if(byte < 0)
+                    tmpB += 0;
+                else
+                    tmpB += mGauss[s+2][t+2] * pixels[byte];
+                if(byte+1 < 0)
+                    tmpG +=0;
+                else
+                    tmpG += mGauss[s+2][t+2] * pixels[byte+1];
+                if(byte+2 < 0)
+                    tmpG +=0;
+                else
+                    tmpR += mGauss[s+2][t+2] * pixels[byte+2];
             }
         }
         tmpB /= 273;
