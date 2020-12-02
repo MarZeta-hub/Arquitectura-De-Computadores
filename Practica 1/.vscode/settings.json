@@ -3,6 +3,7 @@
         "iostream": "cpp",
         "fstream": "cpp",
         "ostream": "cpp",
-        "chrono": "cpp"
+        "chrono": "cpp",
+        "cstddef": "cpp"
     }
 }

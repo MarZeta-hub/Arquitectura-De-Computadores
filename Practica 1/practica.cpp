@@ -12,25 +12,29 @@
 char origen[256];  //El path origen que me han pasado
 char destino[256]; //El path origen que me han pasado
 int op = -1;
-
+int mGauss[5][5] = {{1, 4, 7, 4, 1},
+                              {4, 16, 26, 16, 4},
+                              {7, 26, 41, 26, 7},
+                              {4, 16, 26, 16, 4},
+                              {1, 4, 7, 4, 1}};
 typedef struct infoImagen
 {
-    char B;                // Array de chars "BM"
-    char M;                // Array de chars "BM"
+    char B = 'B';                // Array de chars "BM"
+    char M = 'M';                // Array de chars "BM"
     int sFile;             // Tamaño del fichero
-    int reservado;         //Espacio reservado
-    int offsetImagen;      //Inicio del contenido de los pixeles de la imagen
-    int sCabecera;         // Tamaño de la cabecera
+    int reservado = 0;         //Espacio reservado
+    int offsetImagen = 54;      //Inicio del contenido de los pixeles de la imagen
+    int sCabecera = 40;         // Tamaño de la cabecera
     int anchura;           // Anchura de la imagen
     int altura;            // Altura de la imagen
-    short nPlanos;         // Numero de planos de la imagen
-    short bitPorPixel;     //Bits por pixeles de la imange
-    int compresion;        // Compresion de la imagen
+    short nPlanos = 1;         // Numero de planos de la imagen
+    short bitPorPixel = 24;     //Bits por pixeles de la imange
+    int compresion = 0;        // Compresion de la imagen
     int sImagen;           // Tamaño total solo de la imagen (altura*anchura*3)
-    int rX;                // Resolucion horizontal
-    int rY;                // Resolucion vertical
-    int sColor;            // Tamaño de la tabla de color
-    int colorImportante;   // Colores Importantes
+    int rX = 2835;                // Resolucion horizontal
+    int rY = 2835;                // Resolucion vertical
+    int sColor = 0;            // Tamaño de la tabla de color
+    int colorImportante = 0;   // Colores Importantes
     unsigned char *imagen; // Datos de la imange BMP
 } infoImagen;
 
@@ -49,8 +53,8 @@ char *obtenerFilePath(char *path, char *fichero);
 int operacion(char *fichero, tiempo *time);
 infoImagen leerImagen(const char *fileName, short *error);
 void escribirImagen(const char *filePathDestino, infoImagen imagen);
-infoImagen gauss(infoImagen imagen);
-infoImagen sobel(infoImagen datos);
+unsigned char* gauss(infoImagen datos);
+unsigned char*  sobel(infoImagen datos);
 int comprobarBMP(infoImagen datos);
 void printError(int tipo, char **argv)
 {
@@ -150,7 +154,7 @@ int operacion(char *fichero, tiempo *time)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
     short error = 0;
-
+    cout<<fichero<<"\n";
     /*---------------- Leer Imagen -------------------*/
     auto start_time = chrono::high_resolution_clock::now();
     infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
@@ -159,16 +163,21 @@ int operacion(char *fichero, tiempo *time)
     if (error != 0)
         return -1;
     free(filePathOrigen);
+    infoImagen imagenDestino;
+    imagenDestino.altura = imagenOrigen.altura;
+    imagenDestino.anchura = imagenOrigen.anchura;
+    imagenDestino.sFile = imagenOrigen.sFile;
+    imagenDestino.sImagen = imagenOrigen.sImagen;
 
     /*---------------- Gauss -------------------*/
     start_time = chrono::high_resolution_clock::now();
-    infoImagen imagenDestinoGauss = gauss(imagenOrigen);
+    unsigned char* imagenDestinoGauss = gauss(imagenOrigen);
     end_time = chrono::high_resolution_clock::now();
     time->gaussTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-
+    
     /*---------------- Sobel -------------------*/
     start_time = chrono::high_resolution_clock::now();
-    infoImagen imagenDestinoSobel = sobel(imagenOrigen);
+    unsigned char* imagenDestinoSobel = sobel(imagenOrigen);
     end_time = chrono::high_resolution_clock::now();
     time->sobelTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
@@ -176,12 +185,17 @@ int operacion(char *fichero, tiempo *time)
     switch (op)
     {
     case 1:
+        imagenDestino.imagen = imagenOrigen.imagen;
+        free(imagenDestinoGauss);
+        free(imagenDestinoSobel);
         break;
     case 2:
-        imagenOrigen = imagenDestinoGauss; // En el caso de Gauss
+        imagenDestino.imagen = imagenDestinoGauss; // En el caso de Gauss
+        free(imagenDestinoSobel);
         break;
     case 3:
-        imagenOrigen = imagenDestinoSobel; // En el caso de Sobel
+        imagenDestino.imagen  = imagenDestinoSobel; // En el caso de Sobel
+         free(imagenDestinoGauss);
         break;
     default:
         perror("El programa nunca debería llegar aqui");
@@ -191,7 +205,7 @@ int operacion(char *fichero, tiempo *time)
 
     /*---------------- Escribir el nuevo fichero -------------------*/
     start_time = chrono::high_resolution_clock::now();
-    escribirImagen(filePathDestino, imagenOrigen);
+    escribirImagen(filePathDestino, imagenDestino);
     end_time = chrono::high_resolution_clock::now();
     time->storeTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     free(imagenOrigen.imagen); //Liberar la imagen leida y sobreescrita
@@ -229,18 +243,17 @@ infoImagen leerImagen(const char *fileName, short *error)
         paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
     else
         paddedRowSize = unpaddedRowSize;
-    cout<<paddedRowSize<<" | "<<unpaddedRowSize<<"\n";
 
     int totalSize = unpaddedRowSize * tmp.altura;
     tmp.imagen = (unsigned char *)malloc(totalSize);
 
     unsigned char *currentRowPointer = tmp.imagen + ((tmp.altura - 1) * unpaddedRowSize);
-	for (int i = 0; i < tmp.altura; i++)
-	{
-		fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET);
-		fread(currentRowPointer, 1, unpaddedRowSize, leerDF);
-		currentRowPointer -= unpaddedRowSize;
-	}
+    for (int i = 0; i < tmp.altura; i++)
+    {
+        fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET);
+        fread(currentRowPointer, 1, unpaddedRowSize, leerDF);
+        currentRowPointer -= unpaddedRowSize;
+    }
     fclose(leerDF); // Cierro el descriptor de fichero
     return tmp;
 }
@@ -257,13 +270,12 @@ void escribirImagen(const char *fileName, infoImagen imagen)
     fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); // Escribo los últimos enteros de la cabecera
     fseek(escribirDF, imagen.offsetImagen, SEEK_SET);       // Establezco la posición donde se escribe la imagen
     int unpaddedRowSize = imagen.anchura * 3;
-    int paddedRowSize ;
+    int paddedRowSize;
     if (unpaddedRowSize % 4 != 0)
         paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
     else
         paddedRowSize = unpaddedRowSize;
-
-    cout<<paddedRowSize<<" | "<<unpaddedRowSize<<"\n";
+     cout <<"Escritura "<< paddedRowSize << " | " << unpaddedRowSize << "\n";
     for (int i = 0; i < imagen.altura; i++)
     {
         int pixelOffset = ((imagen.altura - i) - 1) * unpaddedRowSize;
@@ -298,20 +310,115 @@ int comprobarBMP(infoImagen datos)
     return 0;
 }
 
-infoImagen gauss(infoImagen datos)
+unsigned char* sobel(infoImagen datos)
 {
-    infoImagen tmp = datos;
-    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
-    if (op != 2)
-        free(tmp.imagen);
-    return tmp;
+    unsigned char *pixelsN = (unsigned char *)malloc(datos.sImagen);
+    return pixelsN;
 }
 
-infoImagen sobel(infoImagen datos)
+int cb(int numero)
 {
-    infoImagen tmp = datos;
-    tmp.imagen = (unsigned char *)malloc(tmp.sImagen);
-    if (op != 3)
-        free(tmp.imagen);
-    return tmp;
+    if (numero < 0)
+    {
+        numero = 0;
+    }
+    return numero;
+}
+
+unsigned char* gauss(infoImagen datos)
+{
+    int width = datos.anchura;
+    int height = datos.altura;
+    int linea = width * 3;
+    unsigned char *pixels = datos.imagen;
+    int size = height *linea;
+    unsigned char *pixelsN = (unsigned char*) malloc(size);
+
+    for (int i = 0; i < size ; i = i + 3)
+    {
+        int tmpBlue = (((int)pixels[i] * 41)
+                + (((int)pixels[cb(i+(2*linea)-6)] * 1)
+                + ((int)pixels[cb(i+(2*linea)-3)] * 4)
+                + ((int)pixels[cb(i+(2*linea))] * 7)
+                + ((int)pixels[cb(i+(2*linea)+3)] * 4)
+                + ((int)pixels[cb(i+(2*linea)+6)] * 1)
+                + ((int)pixels[cb(i+(linea)-6)] * 4)
+                + ((int)pixels[cb(i+(linea)-3)] * 16)
+                + ((int)pixels[cb(i+(linea))] * 26)
+                + ((int)pixels[cb(i+(linea)+3)] * 16)
+                + ((int)pixels[cb(i+(linea)+6)] * 4)
+                + ((int)pixels[cb(i-6)] * 7)
+                + ((int)pixels[cb(i-3)] * 26)
+                + ((int)pixels[cb(i+3)] * 26)
+                + ((int)pixels[cb(i+6)] * 7)
+                + ((int)pixels[cb(i-(linea)-6)] * 4)
+                + ((int)pixels[cb(i-(linea)-3)] * 16)
+                + ((int)pixels[cb(i-(linea))] * 26)
+                + ((int)pixels[cb(i-(linea)+3)] * 16)
+                + ((int)pixels[cb(i-(linea)+6)] * 4)
+                + ((int)pixels[cb(i-(2*linea)-6)] * 1)
+                + ((int)pixels[cb(i-(2*linea)-3)] * 4)
+                + ((int)pixels[cb(i-(2*linea))] * 7)
+                + ((int)pixels[cb(i-(2*linea)+3)] * 4)
+                + ((int)pixels[cb(i-(2*linea)+6)] * 1)))/273;
+
+        pixelsN[i] = (unsigned char)(tmpBlue);
+
+     int tmpGreen = (((int)pixels[(i+1)] * 41)
+                + (((int)pixels[cb((i+1)+(2*linea)-6)] * 1)
+                + ((int)pixels[cb((i+1)+(2*linea)-3)] * 4)
+                + ((int)pixels[cb((i+1)+(2*linea))] * 7)
+                + ((int)pixels[cb((i+1)+(2*linea)+3)] * 4)
+                + ((int)pixels[cb((i+1)+(2*linea)+6)] * 1)
+                + ((int)pixels[cb((i+1)+(linea)-6)] * 4)
+                + ((int)pixels[cb((i+1)+(linea)-3)] * 16)
+                + ((int)pixels[cb((i+1)+(linea))] * 26)
+                + ((int)pixels[cb((i+1)+(linea)+3)] * 16)
+                + ((int)pixels[cb((i+1)+(linea)+6)] * 4)
+                + ((int)pixels[cb((i+1)-6)] * 7)
+                + ((int)pixels[cb((i+1)-3)] * 26)
+                + ((int)pixels[cb((i+1)+3)] * 26)
+                + ((int)pixels[cb((i+1)+6)] * 7)
+                + ((int)pixels[cb((i+1)-(linea)-6)] * 4)
+                + ((int)pixels[cb((i+1)-(linea)-3)] * 16)
+                + ((int)pixels[cb((i+1)-(linea))] * 26)
+                + ((int)pixels[cb((i+1)-(linea)+3)] * 16)
+                + ((int)pixels[cb((i+1)-(linea)+6)] * 4)
+                + ((int)pixels[cb((i+1)-(2*linea)-6)] * 1)
+                + ((int)pixels[cb((i+1)-(2*linea)-3)] * 4)
+                + ((int)pixels[cb((i+1)-(2*linea))] * 7)
+                + ((int)pixels[cb((i+1)-(2*linea)+3)] * 4)
+                + ((int)pixels[cb((i+1)-(2*linea)+6)] * 1)))/273;
+        pixelsN[(i+1)] = (unsigned char)(tmpGreen);
+
+        int tmpRed = (((int)pixels[(i+2)] * 41)
+                + (((int)pixels[cb((i+2)+(2*linea)-6)] * 1)
+                + ((int)pixels[cb((i+2)+(2*linea)-3)] * 4)
+                + ((int)pixels[cb((i+2)+(2*linea))] * 7)
+                + ((int)pixels[cb((i+2)+(2*linea)+3)] * 4)
+                + ((int)pixels[cb((i+2)+(2*linea)+6)] * 1)
+                + ((int)pixels[cb((i+2)+(linea)-6)] * 4)
+                + ((int)pixels[cb((i+2)+(linea)-3)] * 16)
+                + ((int)pixels[cb((i+2)+(linea))] * 26)
+                + ((int)pixels[cb((i+2)+(linea)+3)] * 16)
+                + ((int)pixels[cb((i+2)+(linea)+6)] * 4)
+                + ((int)pixels[cb((i+2)-6)] * 7)
+                + ((int)pixels[cb((i+2)-3)] * 26)
+                + ((int)pixels[cb((i+2)+3)] * 26)
+                + ((int)pixels[cb((i+2)+6)] * 7)
+                + ((int)pixels[cb((i+2)-(linea)-6)] * 4)
+                + ((int)pixels[cb((i+2)-(linea)-3)] * 16)
+                + ((int)pixels[cb((i+2)-(linea))] * 26)
+                + ((int)pixels[cb((i+2)-(linea)+3)] * 16)
+                + ((int)pixels[cb((i+2)-(linea)+6)] * 4)
+                + ((int)pixels[cb((i+2)-(2*linea)-6)] * 1)
+                + ((int)pixels[cb((i+2)-(2*linea)-3)] * 4)
+                + ((int)pixels[cb((i+2)-(2*linea))] * 7)
+                + ((int)pixels[cb((i+2)-(2*linea)+3)] * 4)
+                + ((int)pixels[cb((i+2)-(2*linea)+6)] * 1)))/273;
+        pixelsN[(i+2)] = (unsigned char)(tmpRed);
+
+
+    }   
+    return pixelsN;
 }
