@@ -166,6 +166,7 @@ int operacion(char *fichero, tiempo *time)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
     short error = 0;
+    cout << fichero << "\n";
     /*---------------- Leer Imagen -------------------*/
     auto start_time = chrono::high_resolution_clock::now();
     infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
@@ -299,6 +300,7 @@ void escribirImagen(const char *fileName, infoImagen imagen)
         paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
     else
         paddedRowSize = unpaddedRowSize;
+    cout << "Escritura " << paddedRowSize << " | " << unpaddedRowSize << "\n";
     for (int i = 0; i < imagen.altura; i++)
     {
         int pixelOffset = ((imagen.altura - i) - 1) * unpaddedRowSize;
