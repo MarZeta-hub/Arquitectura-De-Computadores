@@ -13,10 +13,10 @@ char origen[256];  //El path origen que me han pasado
 char destino[256]; //El path origen que me han pasado
 int op = -1;
 int mGauss[5][5] = {{1, 4, 7, 4, 1},
-                              {4, 16, 26, 16, 4},
-                              {7, 26, 41, 26, 7},
-                              {4, 16, 26, 16, 4},
-                              {1, 4, 7, 4, 1}};
+                    {4, 16, 26, 16, 4},
+                    {7, 26, 41, 26, 7},
+                    {4, 16, 26, 16, 4},
+                    {1, 4, 7, 4, 1}};
 typedef struct infoImagen
 {
     char B = 'B';                // Array de chars "BM"
@@ -330,95 +330,29 @@ unsigned char* gauss(infoImagen datos)
     int width = datos.anchura;
     int height = datos.altura;
     int linea = width * 3;
+    int tmpB, tmpR, tmpG;
     unsigned char *pixels = datos.imagen;
     int size = height *linea;
     unsigned char *pixelsN = (unsigned char*) malloc(size);
-
     for (int i = 0; i < size ; i = i + 3)
     {
-        int tmpBlue = (((int)pixels[i] * 41)
-                + (((int)pixels[cb(i+(2*linea)-6)] * 1)
-                + ((int)pixels[cb(i+(2*linea)-3)] * 4)
-                + ((int)pixels[cb(i+(2*linea))] * 7)
-                + ((int)pixels[cb(i+(2*linea)+3)] * 4)
-                + ((int)pixels[cb(i+(2*linea)+6)] * 1)
-                + ((int)pixels[cb(i+(linea)-6)] * 4)
-                + ((int)pixels[cb(i+(linea)-3)] * 16)
-                + ((int)pixels[cb(i+(linea))] * 26)
-                + ((int)pixels[cb(i+(linea)+3)] * 16)
-                + ((int)pixels[cb(i+(linea)+6)] * 4)
-                + ((int)pixels[cb(i-6)] * 7)
-                + ((int)pixels[cb(i-3)] * 26)
-                + ((int)pixels[cb(i+3)] * 26)
-                + ((int)pixels[cb(i+6)] * 7)
-                + ((int)pixels[cb(i-(linea)-6)] * 4)
-                + ((int)pixels[cb(i-(linea)-3)] * 16)
-                + ((int)pixels[cb(i-(linea))] * 26)
-                + ((int)pixels[cb(i-(linea)+3)] * 16)
-                + ((int)pixels[cb(i-(linea)+6)] * 4)
-                + ((int)pixels[cb(i-(2*linea)-6)] * 1)
-                + ((int)pixels[cb(i-(2*linea)-3)] * 4)
-                + ((int)pixels[cb(i-(2*linea))] * 7)
-                + ((int)pixels[cb(i-(2*linea)+3)] * 4)
-                + ((int)pixels[cb(i-(2*linea)+6)] * 1)))/273;
-
-        pixelsN[i] = (unsigned char)(tmpBlue);
-
-     int tmpGreen = (((int)pixels[(i+1)] * 41)
-                + (((int)pixels[cb((i+1)+(2*linea)-6)] * 1)
-                + ((int)pixels[cb((i+1)+(2*linea)-3)] * 4)
-                + ((int)pixels[cb((i+1)+(2*linea))] * 7)
-                + ((int)pixels[cb((i+1)+(2*linea)+3)] * 4)
-                + ((int)pixels[cb((i+1)+(2*linea)+6)] * 1)
-                + ((int)pixels[cb((i+1)+(linea)-6)] * 4)
-                + ((int)pixels[cb((i+1)+(linea)-3)] * 16)
-                + ((int)pixels[cb((i+1)+(linea))] * 26)
-                + ((int)pixels[cb((i+1)+(linea)+3)] * 16)
-                + ((int)pixels[cb((i+1)+(linea)+6)] * 4)
-                + ((int)pixels[cb((i+1)-6)] * 7)
-                + ((int)pixels[cb((i+1)-3)] * 26)
-                + ((int)pixels[cb((i+1)+3)] * 26)
-                + ((int)pixels[cb((i+1)+6)] * 7)
-                + ((int)pixels[cb((i+1)-(linea)-6)] * 4)
-                + ((int)pixels[cb((i+1)-(linea)-3)] * 16)
-                + ((int)pixels[cb((i+1)-(linea))] * 26)
-                + ((int)pixels[cb((i+1)-(linea)+3)] * 16)
-                + ((int)pixels[cb((i+1)-(linea)+6)] * 4)
-                + ((int)pixels[cb((i+1)-(2*linea)-6)] * 1)
-                + ((int)pixels[cb((i+1)-(2*linea)-3)] * 4)
-                + ((int)pixels[cb((i+1)-(2*linea))] * 7)
-                + ((int)pixels[cb((i+1)-(2*linea)+3)] * 4)
-                + ((int)pixels[cb((i+1)-(2*linea)+6)] * 1)))/273;
-        pixelsN[(i+1)] = (unsigned char)(tmpGreen);
-
-        int tmpRed = (((int)pixels[(i+2)] * 41)
-                + (((int)pixels[cb((i+2)+(2*linea)-6)] * 1)
-                + ((int)pixels[cb((i+2)+(2*linea)-3)] * 4)
-                + ((int)pixels[cb((i+2)+(2*linea))] * 7)
-                + ((int)pixels[cb((i+2)+(2*linea)+3)] * 4)
-                + ((int)pixels[cb((i+2)+(2*linea)+6)] * 1)
-                + ((int)pixels[cb((i+2)+(linea)-6)] * 4)
-                + ((int)pixels[cb((i+2)+(linea)-3)] * 16)
-                + ((int)pixels[cb((i+2)+(linea))] * 26)
-                + ((int)pixels[cb((i+2)+(linea)+3)] * 16)
-                + ((int)pixels[cb((i+2)+(linea)+6)] * 4)
-                + ((int)pixels[cb((i+2)-6)] * 7)
-                + ((int)pixels[cb((i+2)-3)] * 26)
-                + ((int)pixels[cb((i+2)+3)] * 26)
-                + ((int)pixels[cb((i+2)+6)] * 7)
-                + ((int)pixels[cb((i+2)-(linea)-6)] * 4)
-                + ((int)pixels[cb((i+2)-(linea)-3)] * 16)
-                + ((int)pixels[cb((i+2)-(linea))] * 26)
-                + ((int)pixels[cb((i+2)-(linea)+3)] * 16)
-                + ((int)pixels[cb((i+2)-(linea)+6)] * 4)
-                + ((int)pixels[cb((i+2)-(2*linea)-6)] * 1)
-                + ((int)pixels[cb((i+2)-(2*linea)-3)] * 4)
-                + ((int)pixels[cb((i+2)-(2*linea))] * 7)
-                + ((int)pixels[cb((i+2)-(2*linea)+3)] * 4)
-                + ((int)pixels[cb((i+2)-(2*linea)+6)] * 1)))/273;
-        pixelsN[(i+2)] = (unsigned char)(tmpRed);
-
-
+        tmpB = 0;
+        tmpG = 0;
+        tmpR = 0;
+        for(int s = -2; s<=2; s++){
+            for(int t = -2; t<=2; t++){
+                int byte = (i+(s*linea)+t*3);
+                    tmpB += mGauss[s+2][t+2] * pixels[cb(byte)];
+                    tmpG += mGauss[s+2][t+2] * pixels[cb(byte+1)];
+                    tmpR += mGauss[s+2][t+2] * pixels[cb(byte+2)];
+            }
+        }
+        tmpB /= 273;
+        tmpG /= 273;
+        tmpR /= 273;
+        pixelsN[i] = (unsigned char)(tmpB);
+        pixelsN[i+1] = (unsigned char)(tmpG);
+        pixelsN[i+2] = (unsigned char)(tmpR);
     }   
     return pixelsN;
 }
