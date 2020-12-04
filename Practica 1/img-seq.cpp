@@ -421,8 +421,8 @@ unsigned char *gauss(infoImagen datos)
     int tmpB, tmpR, tmpG;
     int size = height * linea;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
-    for (int i = 0; i < height; i += 1)
-        for (int j = 0; j < linea ; j += 3)
+    for (int i = 0; i <= height-1; i += 1)
+        for (int j = 0; j <= linea-1 ; j += 3)
         {
             {
                 tmpB = 0;
@@ -432,14 +432,14 @@ unsigned char *gauss(infoImagen datos)
                 {
                     for (int t = -2; t <= 2; t++)
                     {
-                        int byte = ((i * linea) + j) + (s * linea) + t * 3;
-                        if (byte > 0 && byte < size && 0 <= j+t && j+t <= linea)
+                        int byte = (i+s) * linea + j + t * 3;
+                        if (byte >= 0 && byte <= size-1 && 0 <= j+t*3 && t*3+j <= linea-1)
                             tmpB += mGauss[s + 2][t + 2] * pixels[byte];
                         byte += 1;
-                        if (byte > 0 && byte < size && 0 <= j+t && j+t < linea)
+                        if (byte >= 0 && byte <= size-1 && 0 <= j+t*3+1 && t*3+j+1 <= linea-1)
                             tmpG += mGauss[s + 2][t + 2] * pixels[byte];
                         byte += 1;
-                        if (byte > 0 && byte < size && 0 <= j+t && j+t < linea)
+                        if (byte >= 0 && byte <= size-1 && 0 <= j+t*3+2 && t*3+j+2 <= linea-1)
                             tmpR += mGauss[s + 2][t + 2] * pixels[byte];
                     }
                 }
