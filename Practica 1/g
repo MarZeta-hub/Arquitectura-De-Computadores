@@ -1,0 +1,1 @@
+&& byte > (linea*i)+j && byte < (linea*(i+1))

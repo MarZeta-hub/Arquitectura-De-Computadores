@@ -1,6 +1,6 @@
 /**
  * Actualmente este fichero lo que hace es un ls
-*/
+ */
 
 #include "iostream" //Importante para poder imprimir por pantalla entre otras cosas
 #include <fstream>  //Manejo de ficheros de entrada y salida
@@ -62,7 +62,7 @@ int operacion(char *fichero, tiempo *time);
 infoImagen leerImagen(const char *fileName, short *error);
 void escribirImagen(const char *filePathDestino, infoImagen imagen);
 unsigned char *gauss(infoImagen datos);
-unsigned char *sobel(infoImagen datos,unsigned char * imagen);
+unsigned char *sobel(infoImagen datos, unsigned char *imagen);
 int comprobarBMP(infoImagen datos);
 void printError(int tipo, char **argv)
 {
@@ -146,13 +146,13 @@ int main(int argc, char *argv[])
             time.total = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
             cout << "File: \"" << origen << eDirOrigen->d_name << "\" (time: " << time.total << ")\n"
                  << "  Load time: " << time.loadTime << "\n";
-            if(op ==2 || op == 3){
-                 cout<< "  Gauss time: " << time.gaussTime << "\n";
-                 if(op == 3)
-                    cout<< "  Sobel time: " << time.sobelTime << "\n";
-                 
+            if (op == 2 || op == 3)
+            {
+                cout << "  Gauss time: " << time.gaussTime << "\n";
+                if (op == 3)
+                    cout << "  Sobel time: " << time.sobelTime << "\n";
             }
-            cout<< "  Store time: " << time.storeTime << "\n";
+            cout << "  Store time: " << time.storeTime << "\n";
         }
     }
     closedir(dirOrigen);  //Cierro el directorio de origen
@@ -166,7 +166,7 @@ int operacion(char *fichero, tiempo *time)
 {
     char *filePathOrigen = obtenerFilePath(origen, fichero);
     short error = 0;
-    cout << fichero << "\n";
+
     /*---------------- Leer Imagen -------------------*/
     auto start_time = chrono::high_resolution_clock::now();
     infoImagen imagenOrigen = leerImagen(filePathOrigen, &error);
@@ -178,9 +178,8 @@ int operacion(char *fichero, tiempo *time)
     infoImagen imagenDestino;
     imagenDestino.altura = imagenOrigen.altura;
     imagenDestino.anchura = imagenOrigen.anchura;
-    imagenDestino.sFile = imagenOrigen.sFile;
+    imagenDestino.sFile = imagenOrigen.sImagen + 54;
     imagenDestino.sImagen = imagenOrigen.sImagen;
-
     if (op == 2 || op == 3)
     {
         /*---------------- Gauss -------------------*/
@@ -197,7 +196,9 @@ int operacion(char *fichero, tiempo *time)
             time->sobelTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
         }
         imagenDestino.imagen = imagenDestinoChar;
-    }else{
+    }
+    else
+    {
         imagenDestino.imagen = imagenOrigen.imagen;
     }
 
@@ -211,20 +212,21 @@ int operacion(char *fichero, tiempo *time)
     end_time = chrono::high_resolution_clock::now();
     time->storeTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     free(imagenOrigen.imagen); //Liberar la imagen leida y sobreescrita
-    if( op > 1){
-         free(imagenDestino.imagen);
+    if (op > 1)
+    {
+        free(imagenDestino.imagen);
     }
-    free(filePathDestino);     //Liberar el path de destino
+    free(filePathDestino); //Liberar el path de destino
     return 0;
 }
 
 /* Esta funcion obtiene el path donde se encuentra el fichero juntando la carpeta origen y el nombre del archivo */
 char *obtenerFilePath(char *path, char *fichero)
 {
-    char *filePath = (char *)malloc(256);        // Creo un espacio donde guardar los paths a los archivos
-    memcpy(filePath, path, strlen(path));        // Copio la carpeta
-    strcat(filePath, fichero); // Copio el nombre del fichero
-    return filePath;                             // Devuelvo el puntero al path completo hacia el archivo
+    char *filePath = (char *)malloc(256); // Creo un espacio donde guardar los paths a los archivos
+    memcpy(filePath, path, strlen(path)); // Copio la carpeta
+    strcat(filePath, fichero);            // Copio el nombre del fichero
+    return filePath;                      // Devuelvo el puntero al path completo hacia el archivo
 }
 
 /* Esta función lee la imagen que ha recibido por parámetro y comprueba que todos los parámetros necesarios 
@@ -233,22 +235,27 @@ infoImagen leerImagen(const char *fileName, short *error)
 {
     FILE *leerDF = fopen(fileName, "rb"); // Descriptor de fichero de la imagen
     infoImagen tmp;
-    if ( (fread(&tmp, 1, 2, leerDF)) == 0){
+    if ((fread(&tmp, 1, 2, leerDF)) == 0)
+    {
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
-    if ( (fread(&tmp.sFile, sizeof(int), 6, leerDF)) == 0){
+    //fseek(leerDF, 2, 0);
+    if ((fread(&tmp.sFile, sizeof(int), 6, leerDF)) == 0)
+    {
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
-    if( (fread(&tmp.nPlanos, sizeof(short), 2, leerDF)) == 0){
+    if ((fread(&tmp.nPlanos, sizeof(short), 2, leerDF)) == 0)
+    {
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
-    if ( (fread(&tmp.compresion, sizeof(int), 6, leerDF)) == 0 ){
+    if ((fread(&tmp.compresion, sizeof(int), 6, leerDF)) == 0)
+    {
         perror("Error de escritura");
         *error = -1;
         return tmp;
@@ -272,10 +279,11 @@ infoImagen leerImagen(const char *fileName, short *error)
     for (int i = 0; i < tmp.altura; i++)
     {
         fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET);
-        if( (fread(currentRowPointer, 1, unpaddedRowSize, leerDF)) == 0){
-        perror("Error de escritura");
-        *error = -1;
-        return tmp;
+        if ((fread(currentRowPointer, 1, unpaddedRowSize, leerDF)) == 0)
+        {
+            perror("Error de escritura");
+            *error = -1;
+            return tmp;
         }
         currentRowPointer -= unpaddedRowSize;
     }
@@ -289,7 +297,8 @@ void escribirImagen(const char *fileName, infoImagen imagen)
 {
     FILE *escribirDF = fopen(fileName, "wb");
     // Escribir cada uno de los parámetros de la cabecera
-    fwrite(&imagen, 1, 2, escribirDF);                      // Escribo BM
+    fwrite(&imagen, 1, 2, escribirDF); // Escribo BM
+    //fseek(escribirDF,2,0);
     fwrite(&imagen.sFile, sizeof(int), 6, escribirDF);      // Escribo los siguientes enteros de la cabecera
     fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF);  // Escribo los shorts de la cabecera
     fwrite(&imagen.compresion, sizeof(int), 6, escribirDF); // Escribo los últimos enteros de la cabecera
@@ -300,7 +309,6 @@ void escribirImagen(const char *fileName, infoImagen imagen)
         paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
     else
         paddedRowSize = unpaddedRowSize;
-    cout << "Escritura " << paddedRowSize << " | " << unpaddedRowSize << "\n";
     for (int i = 0; i < imagen.altura; i++)
     {
         int pixelOffset = ((imagen.altura - i) - 1) * unpaddedRowSize;
@@ -335,7 +343,7 @@ int comprobarBMP(infoImagen datos)
     return 0;
 }
 
-unsigned char *sobel(infoImagen datos, unsigned char * imagen)
+unsigned char *sobel(infoImagen datos, unsigned char *imagen)
 {
     int width = datos.anchura;
     int height = datos.altura;
@@ -413,36 +421,35 @@ unsigned char *gauss(infoImagen datos)
     int tmpB, tmpR, tmpG;
     int size = height * linea;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
-    for (int i = 0; i < size; i = i + 3)
-    {
-        tmpB = 0;
-        tmpG = 0;
-        tmpR = 0;
-        for (int s = -2; s <= 2; s++)
+    for (int i = 0; i < height; i += 1)
+        for (int j = 0; j < linea ; j += 3)
         {
-            for (int t = -2; t <= 2; t++)
             {
-                int byte = (i + (s * linea) + t * 3);
-                if (byte < 0)
-                    tmpB += 0;
-                else
-                    tmpB += mGauss[s + 2][t + 2] * pixels[byte];
-                if (byte + 1 < 0)
-                    tmpG += 0;
-                else
-                    tmpG += mGauss[s + 2][t + 2] * pixels[byte + 1];
-                if (byte + 2 < 0)
-                    tmpG += 0;
-                else
-                    tmpR += mGauss[s + 2][t + 2] * pixels[byte + 2];
+                tmpB = 0;
+                tmpG = 0;
+                tmpR = 0;
+                for (int s = -2; s <= 2; s++)
+                {
+                    for (int t = -2; t <= 2; t++)
+                    {
+                        int byte = ((i * linea) + j) + (s * linea) + t * 3;
+                        if (byte > 0 && byte < size && 0 <= j+t && j+t <= linea)
+                            tmpB += mGauss[s + 2][t + 2] * pixels[byte];
+                        byte += 1;
+                        if (byte > 0 && byte < size && 0 <= j+t && j+t < linea)
+                            tmpG += mGauss[s + 2][t + 2] * pixels[byte];
+                        byte += 1;
+                        if (byte > 0 && byte < size && 0 <= j+t && j+t < linea)
+                            tmpR += mGauss[s + 2][t + 2] * pixels[byte];
+                    }
+                }
+                tmpB /= w;
+                tmpG /= w;
+                tmpR /= w;
+                pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
             }
         }
-        tmpB /= w;
-        tmpG /= w;
-        tmpR /= w;
-        pixelsN[i] = (unsigned char)(tmpB);
-        pixelsN[i + 1] = (unsigned char)(tmpG);
-        pixelsN[i + 2] = (unsigned char)(tmpR);
-    }
     return pixelsN;
 }
