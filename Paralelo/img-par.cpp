@@ -9,7 +9,7 @@
 #include <omp.h>
 #include <chrono>
 
-int NUM_THREADS = 8;
+int NUM_THREADS = 4;
 
 char origen[256];  //El path origen que me han pasado
 char destino[256]; //El path origen que me han pasado
@@ -386,7 +386,7 @@ unsigned char *sobel(infoImagen datos, unsigned char *imagen)
     int filaGauss;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
     omp_set_num_threads(NUM_THREADS);
-    #pragma omp parallel for 
+    #pragma omp parallel for private (tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy) schedule(dynamic)
     for (int i = 0; i <= height - 1; i += 1)
         for (int j = 0; j <= linea - 1; j += 3)
         {
@@ -450,7 +450,7 @@ unsigned char *gauss(infoImagen datos)
     int columnaGauss;
     int filaGauss;
     omp_set_num_threads(NUM_THREADS);
-    #pragma omp parallel for private(tmpB, tmpR, tmpG)
+    #pragma omp parallel for private(tmpB, tmpR, tmpG)schedule(dynamic)
     for (int i = 0; i <= height - 1; i += 1)
         for (int j = 0; j <= linea - 1; j += 3)
         {
