@@ -6,7 +6,10 @@
 #include <fstream>  //Manejo de ficheros de entrada y salida
 #include <cstring>  //Utilizado para comparar Strings
 #include <dirent.h> //Manejo entre directorios
+#include <omp.h>
 #include <chrono>
+
+int NUM_THREADS = 8;
 
 char origen[256];  //El path origen que me han pasado
 char destino[256]; //El path origen que me han pasado
@@ -378,7 +381,12 @@ unsigned char *sobel(infoImagen datos, unsigned char *imagen)
     int linea = width * 3;
     int tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy;
     int size = height * linea;
+    int columnaByte;
+    int columnaSobel;
+    int filaGauss;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
+    omp_set_num_threads(NUM_THREADS);
+    #pragma omp parallel for 
     for (int i = 0; i <= height - 1; i += 1)
         for (int j = 0; j <= linea - 1; j += 3)
         {
@@ -393,29 +401,34 @@ unsigned char *sobel(infoImagen datos, unsigned char *imagen)
                 {
                     for (int t = -1; t <= 1; t++)
                     {
-                        int byte = (i + s) * linea + j + t * 3;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 && t * 3 + j <= linea - 1)
+                        filaGauss = s + 1;
+                        columnaSobel = t + 1;
+                        columnaByte = t * 3 + j;
+                        int byte = (i + s) * linea + columnaByte;
+                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 && columnaByte <= linea - 1)
                         {
-                            tmpBx += mxSobel[s + 1][t + 1] * pixels[byte];
-                            tmpBy += mySobel[s + 1][t + 1] * pixels[byte];
+                            tmpBx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpBy += mySobel[filaGauss][columnaSobel] * pixels[byte];
                         }
                         byte += 1;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 + 1 && t * 3 + j + 1 <= linea - 1)
+                        columnaByte += 1;
+                        if (byte >= 0 && byte <= size - 1 && 0 <= columnaByte && columnaByte <= linea - 1)
                         {
-                            tmpGx += mxSobel[s + 1][t + 1] * pixels[byte];
-                            tmpGy += mySobel[s + 1][t + 1] * pixels[byte];
+                            tmpGx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpGy += mySobel[filaGauss][columnaSobel] * pixels[byte];
                         }
                         byte += 1;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 + 2 && t * 3 + j + 2 <= linea - 1)
+                        columnaByte += 1;
+                        if (byte >= 0 && byte <= size - 1 && 0 <= columnaByte && columnaByte <= linea - 1)
                         {
-                            tmpRx += mxSobel[s + 1][t + 1] * pixels[byte];
-                            tmpRy += mySobel[s + 1][t + 1] * pixels[byte];
+                            tmpRx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpRy += mySobel[filaGauss][columnaSobel] * pixels[byte];
                         }
                     }
                 }
-                pixelsN[(i * linea) + j] = (unsigned char) ((abs(tmpBx) + abs(tmpBy)) / w);
-                pixelsN[(i * linea) + j + 1] = (unsigned char) ((abs(tmpGx) + abs(tmpGy))/ w);
-                pixelsN[(i * linea) + j + 2] = (unsigned char) ((abs(tmpRx) + abs(tmpRy))/ w);
+                pixelsN[(i * linea) + j] = (unsigned char)((abs(tmpBx) + abs(tmpBy)) / w);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)((abs(tmpGx) + abs(tmpGy)) / w);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)((abs(tmpRx) + abs(tmpRy)) / w);
             }
         }
     free(pixels);
@@ -423,7 +436,6 @@ unsigned char *sobel(infoImagen datos, unsigned char *imagen)
 }
 
 unsigned char *gauss(infoImagen datos)
-
 {
     int width = datos.anchura;
     int height = datos.altura;
@@ -432,48 +444,48 @@ unsigned char *gauss(infoImagen datos)
     int linea = width * 3;
     int tmpB, tmpR, tmpG;
     int size = height * linea;
-
     unsigned char *pixelsN = (unsigned char *)malloc(size);
     size -= 1;
     int columnaByte;
     int columnaGauss;
     int filaGauss;
-        for (int i = 0; i <= height - 1; i += 1)
-            for (int j = 0; j <= linea - 1; j += 3)
+    omp_set_num_threads(NUM_THREADS);
+    #pragma omp parallel for private(tmpB, tmpR, tmpG)
+    for (int i = 0; i <= height - 1; i += 1)
+        for (int j = 0; j <= linea - 1; j += 3)
+        {
             {
+                tmpB = 0;
+                tmpG = 0;
+                tmpR = 0;
+                for (int s = -2; s <= 2; s++)
                 {
-                    tmpB = 0;
-                    tmpG = 0;
-                    tmpR = 0;
-
-                    for (int s = -2; s <= 2; s++)
+                    for (int t = -2; t <= 2; t++)
                     {
-                        for (int t = -2; t <= 2; t++)
-                        {
-                            columnaByte = j + t * 3;
-                            filaGauss = s + 2;
-                            columnaGauss = t + 2;
-                            int byte = (i + s) * linea + columnaByte;
-                            if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
-                                tmpB += mGauss[filaGauss][columnaGauss] * pixels[byte];
-                            byte += 1;
-                            columnaByte += 1;
-                            if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
-                                tmpG += mGauss[filaGauss][columnaGauss] * pixels[byte];
-                            byte += 1;
-                            columnaByte += 1;
-                            if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
-                                tmpR += mGauss[filaGauss][columnaGauss] * pixels[byte];
-                        }
+                        columnaByte = j + t * 3;
+                        filaGauss = s + 2;
+                        columnaGauss = t + 2;
+                        int byte = (i + s) * linea + columnaByte;
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpB += mGauss[filaGauss][columnaGauss] * pixels[byte];
+                        byte += 1;
+                        columnaByte += 1;
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpG += mGauss[filaGauss][columnaGauss] * pixels[byte];
+                        byte += 1;
+                        columnaByte += 1;
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpR += mGauss[filaGauss][columnaGauss] * pixels[byte];
                     }
-                    tmpB /= w;
-                    tmpG /= w;
-                    tmpR /= w;
-                    pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
-                    pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
-                    pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
                 }
+                tmpB /= w;
+                tmpG /= w;
+                tmpR /= w;
+                pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
             }
+        }
     free(pixels);
     return pixelsN;
 }
