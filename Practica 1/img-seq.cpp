@@ -210,13 +210,9 @@ int operacion(char *fichero, tiempo *time)
     int errorEscribir = escribirImagen(filePathDestino, imagenDestino);
     end_time = chrono::high_resolution_clock::now();
     time->storeTime = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-    free(imagenOrigen.imagen); //Liberar la imagen leida y sobreescrita
-    if (op > 1)
-    {
-        free(imagenDestino.imagen);
-    }
+    free(imagenDestino.imagen);
     free(filePathDestino); //Liberar el path de destino
-    if (errorEscribir == -1)
+    if(errorEscribir == -1)
         return -1;
     return 0;
 }
@@ -225,7 +221,7 @@ int operacion(char *fichero, tiempo *time)
 char *obtenerFilePath(char *path, char *fichero)
 {
     char *filePath = (char *)malloc(256); // Creo un espacio donde guardar los paths a los archivos
-    strcat(filePath, path);               // Copio la carpeta
+    strcat(filePath, path); // Copio la carpeta
     strcat(filePath, fichero);            // Copio el nombre del fichero
     return filePath;                      // Devuelvo el puntero al path completo hacia el archivo
 }
@@ -236,8 +232,7 @@ infoImagen leerImagen(const char *fileName, short *error)
 {
     FILE *leerDF = fopen(fileName, "rb"); // Descriptor de fichero de la imagen
     infoImagen tmp;
-    if (leerDF == NULL)
-    {
+    if(leerDF == NULL){
         perror("Error al intentar leer el fichero");
         *error = -1;
         return tmp;
@@ -248,7 +243,6 @@ infoImagen leerImagen(const char *fileName, short *error)
         *error = -1;
         return tmp;
     }
-    //fseek(leerDF, 2, 0);
     if ((fread(&tmp.sFile, sizeof(int), 6, leerDF)) == 0)
     {
         perror("Error de escritura");
@@ -303,33 +297,28 @@ infoImagen leerImagen(const char *fileName, short *error)
 int escribirImagen(const char *fileName, infoImagen imagen)
 {
     FILE *escribirDF = fopen(fileName, "wb");
-    if (escribirDF == NULL)
-    {
+    if( escribirDF == NULL){
         perror("Error al intentar crear el archivo de destino");
         return -1;
     }
     // Escribir cada uno de los parámetros de la cabecera
-    if (fwrite(&imagen, 1, 2, escribirDF) == 0)
-    { // Escribo BM
-        perror("Error de escritura al escribir los datos de la imagen");
-        return -1;
+    if( fwrite(&imagen, 1, 2, escribirDF) == 0){// Escribo BM
+            perror("Error de escritura al escribir los datos de la imagen");
+            return -1;
+    } 
+    if( fwrite(&imagen.sFile, sizeof(int), 6, escribirDF) == 0){ // Escribo los siguientes enteros de la cabecera
+            perror("Error de escritura al escribir los datos de la imagen");
+            return -1;
+    } 
+    if (fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF) ==  0){// Escribo los shorts de la cabecera
+            perror("Error de escritura al escribir los datos de la imagen");
+            return -1;
     }
-    if (fwrite(&imagen.sFile, sizeof(int), 6, escribirDF) == 0)
-    { // Escribo los siguientes enteros de la cabecera
-        perror("Error de escritura al escribir los datos de la imagen");
-        return -1;
+    if (fwrite(&imagen.compresion, sizeof(int), 6, escribirDF) == 0){// Escribo los últimos enteros de la cabecera
+            perror("Error de escritura al escribir los datos de la imagen");
+            return -1;
     }
-    if (fwrite(&imagen.nPlanos, sizeof(short), 2, escribirDF) == 0)
-    { // Escribo los shorts de la cabecera
-        perror("Error de escritura al escribir los datos de la imagen");
-        return -1;
-    }
-    if (fwrite(&imagen.compresion, sizeof(int), 6, escribirDF) == 0)
-    { // Escribo los últimos enteros de la cabecera
-        perror("Error de escritura al escribir los datos de la imagen");
-        return -1;
-    }
-    fseek(escribirDF, imagen.offsetImagen, SEEK_SET); // Establezco la posición donde se escribe la imagen
+    fseek(escribirDF, imagen.offsetImagen, SEEK_SET);       // Establezco la posición donde se escribe la imagen
     int unpaddedRowSize = imagen.anchura * 3;
     int paddedRowSize;
     if (unpaddedRowSize % 4 != 0)
@@ -339,8 +328,7 @@ int escribirImagen(const char *fileName, infoImagen imagen)
     for (int i = 0; i < imagen.altura; i++)
     {
         int pixelOffset = ((imagen.altura - i) - 1) * unpaddedRowSize;
-        if (fwrite(&imagen.imagen[pixelOffset], 1, paddedRowSize, escribirDF) == 0)
-        {
+        if( fwrite(&imagen.imagen[pixelOffset], 1, paddedRowSize, escribirDF) == 0){
             perror("Error de escritura al escribir los pixeles");
             return -1;
         }
@@ -382,38 +370,46 @@ unsigned char *sobel(infoImagen datos, unsigned char *imagen)
     int w = 8;
     unsigned char *pixels = imagen;
     int linea = width * 3;
-    int tmp[6];
+    int tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy;
     int size = height * linea;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
     for (int i = 0; i <= height - 1; i += 1)
         for (int j = 0; j <= linea - 1; j += 3)
         {
             {
-                tmp[0] = 0;
-                tmp[1] = 0;
-                tmp[2] = 0;
-                tmp[3] = 0;
-                tmp[4] = 0;
-                tmp[5] = 0;
+                tmpBx = 0;
+                tmpGx = 0;
+                tmpRx = 0;
+                tmpBy = 0;
+                tmpGy = 0;
+                tmpRy = 0;
                 for (int s = -1; s <= 1; s++)
                 {
                     for (int t = -1; t <= 1; t++)
                     {
                         int byte = (i + s) * linea + j + t * 3;
-                        for (short color = 0; color <= 4; color+=2)
+                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 && t * 3 + j <= linea - 1)
                         {
-                            if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 && t * 3 + j <= linea - 1)
-                            {
-                                tmp[color] += mxSobel[s + 1][t + 1] * pixels[byte];
-                                tmp[color+1] += mySobel[s + 1][t + 1] * pixels[byte];
-                            }
-                            byte += 1;
+                            tmpBx += mxSobel[s + 1][t + 1] * pixels[byte];
+                            tmpBy += mySobel[s + 1][t + 1] * pixels[byte];
+                        }
+                        byte += 1;
+                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 + 1 && t * 3 + j + 1 <= linea - 1)
+                        {
+                            tmpGx += mxSobel[s + 1][t + 1] * pixels[byte];
+                            tmpGy += mySobel[s + 1][t + 1] * pixels[byte];
+                        }
+                        byte += 1;
+                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 + 2 && t * 3 + j + 2 <= linea - 1)
+                        {
+                            tmpRx += mxSobel[s + 1][t + 1] * pixels[byte];
+                            tmpRy += mySobel[s + 1][t + 1] * pixels[byte];
                         }
                     }
                 }
-                pixelsN[(i * linea) + j] = (unsigned char) ((abs(tmp[0]) + abs(tmp[1]))/ w);
-                pixelsN[(i * linea) + j + 1] = (unsigned char)((abs(tmp[2]) + abs(tmp[3]))/ w);
-                pixelsN[(i * linea) + j + 2] = (unsigned char)((abs(tmp[4]) + abs(tmp[5]))/ w);
+                pixelsN[(i * linea) + j] = (unsigned char)(abs(tmpBx)/w+ abs(tmpBy)/w);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(abs(tmpGx)/w + abs(tmpGy)/w);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(abs(tmpRx)/w + abs(tmpRy)/w);
             }
         }
     free(pixels);
@@ -427,21 +423,20 @@ unsigned char *gauss(infoImagen datos)
     unsigned char *pixels = datos.imagen;
     int w = 273;
     int linea = width * 3;
-    int tmp[3];
+    int tmpB, tmpR, tmpG;
     int size = height * linea;
     unsigned char *pixelsN = (unsigned char *)malloc(size);
     size -= 1;
     int columnaByte;
     int columnaGauss;
     int filaGauss;
-    height -= 1;
-    for (int i = 0; i <= height; i += 1)
+    for (int i = 0; i <= height - 1; i += 1)
         for (int j = 0; j <= linea - 1; j += 3)
         {
             {
-                tmp[0] = 0;
-                tmp[1] = 0;
-                tmp[2] = 0;
+                tmpB = 0;
+                tmpG = 0;
+                tmpR = 0;
                 for (int s = -2; s <= 2; s++)
                 {
                     for (int t = -2; t <= 2; t++)
@@ -450,22 +445,26 @@ unsigned char *gauss(infoImagen datos)
                         filaGauss = s + 2;
                         columnaGauss = t + 2;
                         int byte = (i + s) * linea + columnaByte;
-                        for (short color = 0; color <= 2; color++)
-                        {
-                            if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
-                                tmp[color] += mGauss[filaGauss][columnaGauss] * pixels[byte];
-                            byte += 1;
-                            columnaByte += 1;
-                        }
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpB += mGauss[filaGauss][columnaGauss] * pixels[byte];
+                        byte += 1;
+                        columnaByte +=1;
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpG += mGauss[filaGauss][columnaGauss] * pixels[byte];
+                        byte += 1;
+                        columnaByte +=1;
+                        if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
+                            tmpR += mGauss[filaGauss][columnaGauss] * pixels[byte];
                     }
                 }
-                tmp[0] /= w;
-                tmp[1] /= w;
-                tmp[2] /= w;
-                pixelsN[(i * linea) + j] = (unsigned char)(tmp[0]);
-                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmp[1]);
-                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmp[2]);
+                tmpB /= w;
+                tmpG /= w;
+                tmpR /= w;
+                pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
             }
         }
+    free(pixels);
     return pixelsN;
 }
