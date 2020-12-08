@@ -482,9 +482,12 @@ unsigned char *gauss(infoImagen datos)
                     }
                 }
                 //Guardo los valores en la imagen nueva
-                pixelsN[(i * linea) + j] = (unsigned char)(tmpB/w);
-                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG)/w;
-                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR/w);
+                tmpB /=w;
+                tmpG /=w;
+                tmpR /=w;
+                pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
             }
         }
     free(pixels); //Libero memoria de la antigua imagen
