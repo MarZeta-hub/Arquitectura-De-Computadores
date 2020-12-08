@@ -1,5 +1,5 @@
 /**
- * Actualmente este fichero lo que hace es un ls
+ * CODIGO FINAL DE LA PARTE SECUENCIAL
  */
 
 #include "iostream" //Importante para poder imprimir por pantalla entre otras cosas
