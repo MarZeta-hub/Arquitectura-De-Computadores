@@ -222,7 +222,7 @@ int operacion(char *fichero, tiempo *time)
 /* Esta funcion obtiene el path donde se encuentra el fichero juntando la carpeta origen y el nombre del archivo */
 char *obtenerFilePath(char *path, char *fichero)
 {
-    char *filePath = (char *)malloc(256); // Creo un espacio donde guardar los paths a los archivos
+    char *filePath = new char[256]; // Creo un espacio donde guardar los paths a los archivos
     strcat(filePath, path);               // Copio la carpeta
     strcat(filePath, fichero);            // Copio el nombre del fichero
     return filePath;                      // Devuelvo el puntero al path completo hacia el archivo
@@ -234,57 +234,56 @@ infoImagen leerImagen(const char *fileName, short *error)
 {
     FILE *leerDF = fopen(fileName, "rb"); // Descriptor de fichero de la imagen
     infoImagen tmp;
-    if (leerDF == NULL)
-    {
+    if(leerDF == NULL){ //En caso de que el archivo no pueda ser leído o no exista
         perror("Error al intentar leer el fichero");
         *error = -1;
         return tmp;
     }
     if ((fread(&tmp, 1, 2, leerDF)) == 0)
-    {
+    { //Leo los dos primeros bytes
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
     if ((fread(&tmp.sFile, sizeof(int), 6, leerDF)) == 0)
-    {
+    { //Leo los siguientes enteros de la cabecera
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
     if ((fread(&tmp.nPlanos, sizeof(short), 2, leerDF)) == 0)
-    {
+    { //Leo los dos shorts de la cabecera
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
     if ((fread(&tmp.compresion, sizeof(int), 6, leerDF)) == 0)
-    {
+    { //Leo los ultimo enteros de la cabecera
         perror("Error de escritura");
         *error = -1;
         return tmp;
     }
     if (comprobarBMP(tmp) != 0)
-    {
+    { //En caso de que no sea un fichero valido
         *error = 1;
         return tmp;
     }
-    int unpaddedRowSize = tmp.anchura * 3;
+    int unpaddedRowSize = tmp.anchura * 3; // Consigo el tamaño de una linea sin padding
     int paddedRowSize;
-    if (unpaddedRowSize % 4 != 0)
+    if (unpaddedRowSize % 4 != 0) //Para averiguar si el fichero tiene padding o no
         paddedRowSize = unpaddedRowSize + (4 - (unpaddedRowSize % 4));
     else
         paddedRowSize = unpaddedRowSize;
 
-    int totalSize = unpaddedRowSize * tmp.altura;
-    tmp.imagen = (unsigned char *)malloc(totalSize);
-
-    unsigned char *currentRowPointer = tmp.imagen + ((tmp.altura - 1) * unpaddedRowSize);
-    for (int i = 0; i < tmp.altura; i++)
+    int totalSize = unpaddedRowSize * tmp.altura; //Tamaño total del archivo sin padding
+    tmp.imagen = (unsigned char *)malloc(totalSize); //Lugar donde vamos a guardar los archivos
+    unsigned char *currentRowPointer = tmp.imagen + ((tmp.altura - 1) * unpaddedRowSize); //Puntero al lugar donde se guarda la imagen
+                                                                                          //Para guardar cada linea en su lugar correspondiente
+    for (int i = 0; i < tmp.altura; i++) //Guarado el fichero por lineas
     {
-        fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET);
+        fseek(leerDF, tmp.offsetImagen + (i * paddedRowSize), SEEK_SET); //posiciono el offset
         if ((fread(currentRowPointer, 1, unpaddedRowSize, leerDF)) == 0)
-        {
+        { //En el caso de que una linea no tenga informacion
             perror("Error de escritura");
             *error = -1;
             return tmp;
@@ -294,6 +293,7 @@ infoImagen leerImagen(const char *fileName, short *error)
     fclose(leerDF); // Cierro el descriptor de fichero
     return tmp;
 }
+
 
 /*Esta funcion obtiene todos los parametros necesarios para leer una imagen y escribe la imagen pasada por argumento
    ademas del lugar donde guardarla, la altura y la anchura*/
@@ -374,118 +374,132 @@ int comprobarBMP(infoImagen datos)
 
 unsigned char *sobel(infoImagen datos, unsigned char *imagen)
 {
-    int width = datos.anchura;
+    //Obtengo la anchura y altura del fichero
+    int width = datos.anchura; 
     int height = datos.altura;
-    int w = 8;
-    unsigned char *pixels = imagen;
-    int linea = width * 3;
-    int tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy;
-    int size = height * linea;
-    int columnaByte;
+    int w = 8; //Peso designado para realizar la mascara
+    unsigned char *pixels = imagen; // la imagen origen
+    int linea = width * 3;  //Tamaño de una linea
+    int tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy;   //Valores temporales de un byte de un pixel
+    int size = height * linea;  //El tamaño del fichero 
+    int columnaByte;    //La columna donde esta el byte, se usa para comparar si esta dentro del fichero o fuera
     int columnaSobel;
-    int filaGauss;
-    unsigned char *pixelsN = (unsigned char *)malloc(size);
+    int filaSobel;
+    int byte;
+    unsigned char *pixelsN = (unsigned char *)malloc(size); //Imagen nueva
+    size -=1; //Para evitar que se realice la operacion en cada if
     omp_set_num_threads(NUM_THREADS);
     #pragma omp parallel for private (tmpBx, tmpBy, tmpRx, tmpRy, tmpGx, tmpGy) schedule(dynamic)
-    for (int i = 0; i <= height - 1; i += 1)
-        for (int j = 0; j <= linea - 1; j += 3)
-        {
+    for (int i = 0; i <= height - 1; i += 1)    //Empiezo en 0, por lo tanto tengo que llegar hasta altura -1
+        for (int j = 0; j <= linea - 1; j += 3) //Empiezo en 0, por lo tanto tengo que llegar hasta linea -1
+        {                                       //Como realizamos la operación del los tres bytes desde j, entonces
+                                                //Se le debe sumar 3 a j para los 3 bytes siguientes
             {
+                //Reset valores
                 tmpBx = 0;
                 tmpGx = 0;
                 tmpRx = 0;
                 tmpBy = 0;
                 tmpGy = 0;
                 tmpRy = 0;
+                //Mascara de Sobel
                 for (int s = -1; s <= 1; s++)
                 {
                     for (int t = -1; t <= 1; t++)
                     {
-                        filaGauss = s + 1;
+                        //Obtengo los valores que se van a usar en el proceso
+                        filaSobel = s + 1;  
                         columnaSobel = t + 1;
                         columnaByte = t * 3 + j;
-                        int byte = (i + s) * linea + columnaByte;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= j + t * 3 && columnaByte <= linea - 1)
+                        byte = (i + s) * linea + columnaByte ;
+                        // Todos los parametros son para comprobar  si el byte escogido está dentro de la imagen
+                        if (byte >= 0 && byte <= size  && 0 <= j + t * 3 && columnaByte  <= linea - 1)
                         {
-                            tmpBx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
-                            tmpBy += mySobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpBx += mxSobel[filaSobel][columnaSobel] * pixels[byte];
+                            tmpBy += mySobel[filaSobel][columnaSobel] * pixels[byte];
                         }
                         byte += 1;
-                        columnaByte += 1;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= columnaByte && columnaByte <= linea - 1)
+                        columnaByte +=1;
+                        if (byte >= 0 && byte <= size  && 0 <= columnaByte && columnaByte <= linea - 1)
                         {
-                            tmpGx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
-                            tmpGy += mySobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpGx += mxSobel[filaSobel][columnaSobel] * pixels[byte];
+                            tmpGy += mySobel[filaSobel][columnaSobel] * pixels[byte];
                         }
                         byte += 1;
-                        columnaByte += 1;
-                        if (byte >= 0 && byte <= size - 1 && 0 <= columnaByte && columnaByte <= linea - 1)
+                        columnaByte +=1;
+                        if (byte >= 0 && byte <= size  && 0 <= columnaByte  && columnaByte  <= linea - 1)
                         {
-                            tmpRx += mxSobel[filaGauss][columnaSobel] * pixels[byte];
-                            tmpRy += mySobel[filaGauss][columnaSobel] * pixels[byte];
+                            tmpRx += mxSobel[filaSobel][columnaSobel] * pixels[byte];
+                            tmpRy += mySobel[filaSobel][columnaSobel] * pixels[byte];
                         }
                     }
                 }
-                pixelsN[(i * linea) + j] = (unsigned char)((abs(tmpBx) + abs(tmpBy)) / w);
-                pixelsN[(i * linea) + j + 1] = (unsigned char)((abs(tmpGx) + abs(tmpGy)) / w);
-                pixelsN[(i * linea) + j + 2] = (unsigned char)((abs(tmpRx) + abs(tmpRy)) / w);
+                // Guardo los valores en la nueva imagen
+                pixelsN[(i * linea) + j] = (unsigned char) ((abs(tmpBx)+ abs(tmpBy)) /w);
+                pixelsN[(i * linea) + j + 1] = (unsigned char) ((abs(tmpGx) + abs(tmpGy)) /w);
+                pixelsN[(i * linea) + j + 2] = (unsigned char) ((abs(tmpRx) + abs(tmpRy))/w);
             }
         }
-    free(pixels);
-    return pixelsN;
+    free(pixels); // Libero la memoria de la antigua imagen
+    return pixelsN; //Devuelvo la nueva
 }
 
 unsigned char *gauss(infoImagen datos)
 {
+    //Obtengo los valores que me han pasado
     int width = datos.anchura;
     int height = datos.altura;
     unsigned char *pixels = datos.imagen;
-    int w = 273;
-    int linea = width * 3;
-    int tmpB, tmpR, tmpG;
-    int size = height * linea;
-    unsigned char *pixelsN = (unsigned char *)malloc(size);
-    size -= 1;
+    int w = 273; //El peso de la mascara
+    int linea = width * 3; //Tamaño de la fila
+    int tmpB, tmpR, tmpG; //Declarar valores temporales
+    int size = height * linea; //Tamaño de la imagen
+    unsigned char *pixelsN = (unsigned char *)malloc(size); //Nuevo imagen
+    size -= 1; //Para que no se tenga que hacer la operacion en cada linea
+    //Declaro variables
     int columnaByte;
     int columnaGauss;
     int filaGauss;
+    int byte;
     omp_set_num_threads(NUM_THREADS);
     #pragma omp parallel for private(tmpB, tmpR, tmpG)schedule(dynamic)
-    for (int i = 0; i <= height - 1; i += 1)
-        for (int j = 0; j <= linea - 1; j += 3)
+    for (int i = 0; i <= height - 1; i += 1) //Altura
+        for (int j = 0; j <= linea - 1; j += 3) //Anchura
         {
             {
+                //Reseto las variables
                 tmpB = 0;
                 tmpG = 0;
                 tmpR = 0;
+                //Mascara de Gauss
                 for (int s = -2; s <= 2; s++)
                 {
                     for (int t = -2; t <= 2; t++)
                     {
-                        columnaByte = j + t * 3;
+                        //Inicializo las varibles
+                        columnaByte = j + t * 3; 
                         filaGauss = s + 2;
                         columnaGauss = t + 2;
-                        int byte = (i + s) * linea + columnaByte;
+                        byte = (i + s) * linea + columnaByte;
+                        //Parametros para conocer si el byte esta dentro de la imagen
                         if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
                             tmpB += mGauss[filaGauss][columnaGauss] * pixels[byte];
                         byte += 1;
-                        columnaByte += 1;
+                        columnaByte +=1;
                         if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
                             tmpG += mGauss[filaGauss][columnaGauss] * pixels[byte];
                         byte += 1;
-                        columnaByte += 1;
+                        columnaByte +=1;
                         if (byte >= 0 && byte <= size && 0 <= columnaByte && columnaByte <= linea - 1)
                             tmpR += mGauss[filaGauss][columnaGauss] * pixels[byte];
                     }
                 }
-                tmpB /= w;
-                tmpG /= w;
-                tmpR /= w;
-                pixelsN[(i * linea) + j] = (unsigned char)(tmpB);
-                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG);
-                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR);
+                //Guardo los valores en la imagen nueva
+                pixelsN[(i * linea) + j] = (unsigned char)(tmpB/w);
+                pixelsN[(i * linea) + j + 1] = (unsigned char)(tmpG)/w;
+                pixelsN[(i * linea) + j + 2] = (unsigned char)(tmpR/w);
             }
         }
-    free(pixels);
-    return pixelsN;
+    free(pixels); //Libero memoria de la antigua imagen
+    return pixelsN; //Devuelvo la nueva
 }

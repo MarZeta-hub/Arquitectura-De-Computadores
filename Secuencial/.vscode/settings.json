@@ -5,6 +5,7 @@
         "ostream": "cpp",
         "chrono": "cpp",
         "cstddef": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "new": "cpp"
     }
 }
